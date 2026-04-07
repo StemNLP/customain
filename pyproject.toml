@@ -1,0 +1,22 @@
+[project]
+name = "customain"
+version = "0.1.0"
+description = "Email dataset pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "email-reply-parser>=0.5.12",
+    "google-api-python-client>=2.193.0",
+]
+
+[project.scripts]
+parse-emails = "mbox_parser.pipeline:export_jsonl"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mbox_parser"]
