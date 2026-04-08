@@ -11,7 +11,7 @@ from googleapiclient.discovery import build
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 CREDS_FILE = "credentials.json"
 TOKEN_FILE = "token.json"
-MBOX_FILE = "primary_export.mbox"
+MBOX_FILE = "replied_threads.mbox"
 
 
 def get_service():
@@ -32,53 +32,71 @@ def get_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def iter_primary_message_ids(service):
+def iter_replied_thread_ids(service):
+    """Find thread IDs where the user sent a reply."""
     page_token = None
+    seen = set()
 
     while True:
         response = service.users().messages().list(
             userId="me",
-            q="category:primary",
+            q="from:me in:sent",
             maxResults=500,
             pageToken=page_token,
         ).execute()
 
-        for message in response.get("messages", []):
-            yield message["id"]
+        for msg in response.get("messages", []):
+            tid = msg["threadId"]
+            if tid not in seen:
+                seen.add(tid)
+                yield tid
 
         page_token = response.get("nextPageToken")
         if not page_token:
             break
 
 
-def export_primary_to_mbox(service):
+def export_replied_threads(service):
     mbox = mailbox.mbox(MBOX_FILE)
-    count = 0
+    thread_count = 0
+    msg_count = 0
 
-    for message_id in iter_primary_message_ids(service):
-        raw_message = service.users().messages().get(
+    for thread_id in iter_replied_thread_ids(service):
+        thread = service.users().threads().get(
             userId="me",
-            id=message_id,
-            format="raw",
+            id=thread_id,
+            format="full",
         ).execute()
 
-        raw_bytes = base64.urlsafe_b64decode(raw_message["raw"].encode("utf-8"))
-        msg = email.message_from_bytes(raw_bytes)
-        mbox.add(msg)
+        # Only keep threads with at least 2 messages (a received + a reply)
+        messages = thread.get("messages", [])
+        if len(messages) < 2:
+            continue
 
-        count += 1
-        if count % 100 == 0:
+        for msg_resource in messages:
+            raw_message = service.users().messages().get(
+                userId="me",
+                id=msg_resource["id"],
+                format="raw",
+            ).execute()
+            raw_bytes = base64.urlsafe_b64decode(raw_message["raw"].encode("utf-8"))
+            msg = email.message_from_bytes(raw_bytes)
+            mbox.add(msg)
+            msg_count += 1
+
+        thread_count += 1
+        if thread_count % 50 == 0:
             mbox.flush()
-            print(f"Exported {count} messages...")
+            print(f"Exported {thread_count} threads ({msg_count} messages)...")
 
     mbox.flush()
     mbox.close()
-    print(f"Done. Exported {count} messages to {MBOX_FILE}")
+    print(f"Done. {thread_count} threads, {msg_count} messages -> {MBOX_FILE}")
 
 
 def main():
     service = get_service()
-    export_primary_to_mbox(service)
+    export_replied_threads(service)
 
 
 if __name__ == "__main__":
