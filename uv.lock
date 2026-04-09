@@ -239,6 +239,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "email-reply-parser" },
+    { name = "git-filter-repo" },
     { name = "google-api-python-client" },
     { name = "google-auth-httplib2" },
     { name = "google-auth-oauthlib" },
@@ -247,6 +248,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "email-reply-parser", specifier = ">=0.5.12" },
+    { name = "git-filter-repo", specifier = ">=2.47.0" },
     { name = "google-api-python-client", specifier = ">=2.193.0" },
     { name = "google-auth-httplib2", specifier = ">=0.3.1" },
     { name = "google-auth-oauthlib", specifier = ">=1.3.1" },
@@ -259,6 +261,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ed/f9/3fbd22530467a831a0506267477c5005d24661d07abf776678ab42d51b35/email_reply_parser-0.5.12.tar.gz", hash = "sha256:9dbf3eca69990932234f09e7f50aa73756574fc1f88e88c324fec1a741ee6a74", size = 4694, upload-time = "2020-10-07T17:26:34.734Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ab/8d/11696d31eafc68ceea8108f635d30aefc6df9cb27640949f45aec963d637/email_reply_parser-0.5.12-py3-none-any.whl", hash = "sha256:3499c02284679e020acf8aa30ef9e43c62f9ab5ccee0a35bfac85a0c1fa685fd", size = 4139, upload-time = "2020-10-07T17:26:46.835Z" },
+]
+
+[[package]]
+name = "git-filter-repo"
+version = "2.47.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/bb/7a283f568af6b0528ade65e8ace84bd6ba46003e429101bcd62c232d01a5/git_filter_repo-2.47.0.tar.gz", hash = "sha256:411b27e68a080c07a69c233cb526dbc2d848b09a72f10477f4444dd0822cf290", size = 275743, upload-time = "2024-12-04T03:10:48.2Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/60/d3943f0880ebcb7e0bdf79254d10dddd39c7b656eeecae32b8806ff66dec/git_filter_repo-2.47.0-py3-none-any.whl", hash = "sha256:2cd04929b9024e83e65db571cbe36aec65ead0cb5f9ec5abe42158654af5ad83", size = 76282, upload-time = "2024-12-04T03:10:46.064Z" },
 ]
 
 [[package]]
