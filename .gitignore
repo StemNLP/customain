@@ -16,4 +16,5 @@ token.json
 # Data (personal emails)
 *.mbox
 *.jsonl
+*.json
 data/
