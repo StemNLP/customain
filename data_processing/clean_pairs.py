@@ -18,7 +18,7 @@ from pathlib import Path
 import anthropic
 
 MODEL = "claude-haiku-4-5-20251001"
-TEST_MODE = True
+TEST_MODE = False
 TEST_LIMIT = 20
 
 SYSTEM_PROMPT = """\

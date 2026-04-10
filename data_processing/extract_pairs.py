@@ -127,7 +127,7 @@ def iter_reply_pairs(mbox_path: Path) -> Iterator[ReplyPair]:
 
     for reply in replies:
         received = by_message_id.get(reply.in_reply_to.strip())
-        if received and received.from_email != MY_EMAIL:
+        if received and received.from_email != MY_EMAIL and received.body_text and reply.body_text:
             yield ReplyPair(
                 subject=received.subject,
                 received_body=received.body_text,
