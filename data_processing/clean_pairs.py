@@ -11,6 +11,7 @@ Usage:
 
 import argparse
 import json
+import random
 import sys
 from pathlib import Path
 
@@ -65,8 +66,8 @@ def process_file(input_path: Path, output_path: Path):
     client = anthropic.Anthropic()
     lines = input_path.read_text(encoding="utf-8").strip().splitlines()
     if TEST_MODE:
-        lines = lines[:TEST_LIMIT]
-        print(f"TEST MODE: limited to {TEST_LIMIT} pairs")
+        lines = random.sample(lines, min(TEST_LIMIT, len(lines)))
+        print(f"TEST MODE: randomly sampled {len(lines)} pairs")
     total = len(lines)
     print(f"Cleaning {total} pairs from {input_path} ...")
 
