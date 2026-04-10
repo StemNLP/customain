@@ -12,6 +12,7 @@ wheels/
 # Secrets
 credentials.json
 token.json
+.env
 
 # Data (personal emails)
 *.mbox
