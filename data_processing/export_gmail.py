@@ -9,9 +9,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-CREDS_FILE = "credentials.json"
-TOKEN_FILE = "token.json"
-MBOX_FILE = "../data/new_threads.mbox"
+BASE_DIR = Path(__file__).parent.parent
+CREDS_FILE = str(BASE_DIR / ".secrets" / "credentials.json")
+TOKEN_FILE = str(BASE_DIR / ".secrets" / "token.json")
+MBOX_FILE = str(BASE_DIR / "data" / "new_threads.mbox")
 
 
 def get_service():

@@ -17,6 +17,8 @@ from pathlib import Path
 import anthropic
 
 MODEL = "claude-haiku-4-5-20251001"
+TEST_MODE = True
+TEST_LIMIT = 20
 
 SYSTEM_PROMPT = """\
 You are an email body cleaner. Your job is to remove signature blocks, \
@@ -36,7 +38,7 @@ Remove:
 Preserve EXACTLY (do not modify, rephrase, or summarize):
 - The entire message body text
 - Greetings and sign-offs that are part of the message (e.g. "Best, Name")
-- URLs that are part of the message content (not signature links)
+- Replace ALL URLs (http/https links) with [LINK]
 - All formatting, line breaks, and whitespace in the message body
 
 Also remove quoted replies:
@@ -62,6 +64,9 @@ def clean_body(client: anthropic.Anthropic, text: str) -> str:
 def process_file(input_path: Path, output_path: Path):
     client = anthropic.Anthropic()
     lines = input_path.read_text(encoding="utf-8").strip().splitlines()
+    if TEST_MODE:
+        lines = lines[:TEST_LIMIT]
+        print(f"TEST MODE: limited to {TEST_LIMIT} pairs")
     total = len(lines)
     print(f"Cleaning {total} pairs from {input_path} ...")
 
