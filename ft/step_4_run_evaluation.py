@@ -3,6 +3,7 @@ from ft.evaluation.registry import get_evaluator_registry
 from pathlib import Path
 import json
 import logging
+import wandb
 from .logging_config import setup_logger
 
 logger = setup_logger(log_level=logging.INFO)
@@ -61,6 +62,8 @@ def evaluate_all_ft_models() -> None:
 
     logger.info(f"Loaded evaluators: {list(evaluator_registry.keys())}")
 
+    wandb.init(project="customain", job_type="evaluation")
+
     with open(eval_run_results, "r") as f:
         ft_models_eval_runs = json.load(f)
 
@@ -79,6 +82,7 @@ def evaluate_all_ft_models() -> None:
                 if scores:
                     avg_metrics[name] = round(sum(scores) / len(scores), 4)
             logger.info(f"  Model {ft_model_id} averages: {avg_metrics}")
+            wandb.log({"model": ft_model_id, **avg_metrics})
 
         all_evaluations[ft_model_id] = {
             "per_datapoint": results,
@@ -88,3 +92,5 @@ def evaluate_all_ft_models() -> None:
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(all_evaluations, f, indent=2, ensure_ascii=False)
     logger.info(f"Evaluation results saved to {output_path}")
+
+    wandb.finish()

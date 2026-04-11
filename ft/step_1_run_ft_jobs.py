@@ -3,6 +3,7 @@ import shortuuid
 from pathlib import Path
 from ft.finetuning import run_finetuning
 import logging
+import wandb
 from .logging_config import setup_logger
 
 logger = setup_logger(log_level=logging.INFO)
@@ -100,7 +101,9 @@ def run_experiments(training_configurations):
         logger.info("Aborting experiment run.")
         return None
     logger.info("Proceeding with experiments...")
-    
+
+    wandb.init(project="customain", job_type="fine-tuning")
+
     for config in training_configurations:
         # Validate required fields
         if not all(key in config for key in ["model", "training_file", "training_file_oai_id", "hyperparameters"]):
@@ -125,7 +128,7 @@ def run_experiments(training_configurations):
             experiment_id = str(shortuuid.uuid())
             
             # Store experiment config with UUID as key
-            experiments[experiment_id] = {
+            experiment_data = {
                 "model": config["model"],
                 "training_file": config["training_file"],
                 "training_file_oai_id": config["training_file_oai_id"],
@@ -134,6 +137,14 @@ def run_experiments(training_configurations):
                 "hyperparameters": config["hyperparameters"],
                 "ft_job_id": response.id,
             }
+            experiments[experiment_id] = experiment_data
+
+            wandb.log({
+                "experiment_id": experiment_id,
+                "model": config["model"],
+                "ft_job_id": response.id,
+                **(config["hyperparameters"] or {}),
+            })
 
         except Exception as e:
             logger.exception(f"Error running experiment with config {config}: {str(e)}")
@@ -143,6 +154,8 @@ def run_experiments(training_configurations):
         json.dump(experiments, f, indent=4)
     logger.info(f"Generated {len(experiments)} experiments.")
     logger.info(f"Experiments saved to {output_path}")
-    
+
+    wandb.finish()
+
     return experiments
 

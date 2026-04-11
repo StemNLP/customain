@@ -1,6 +1,7 @@
 from openai import OpenAI
 import json
 import logging
+import os
 from pathlib import Path
 from .logging_config import setup_logger
 
@@ -14,6 +15,10 @@ with open(SECRETS_FILE, "r") as f:
 client = OpenAI(
     api_key=credentials.get("openai_api_key"),
 )
+
+# Set wandb API key from secrets if not already in env
+if credentials.get("wandb_api_key") and not os.environ.get("WANDB_API_KEY"):
+    os.environ["WANDB_API_KEY"] = credentials["wandb_api_key"]
 
 
 def run_finetuning(training_file,
