@@ -1,6 +1,6 @@
 # Customain
 
-Email dataset pipeline for building instruction-tuning data from Gmail exports.
+Email dataset pipeline for building instruction-tuning data from Gmail, and fine-tuning OpenAI models on it.
 
 ## Repo Structure
 
@@ -10,71 +10,79 @@ customain/
 │   ├── export_gmail.py       # Step 0: Export replied threads from Gmail API
 │   ├── extract_pairs.py      # Step 1: mbox -> raw email-reply pairs (JSONL)
 │   ├── clean_pairs.py        # Step 2: LLM-based body cleaning (signatures, quotes, links)
-│   └── filter_pairs.py       # Step 3: LLM-based quality filter (drops warmup, spam, too-short)
-├── .secrets/                  # OAuth credentials and tokens (gitignored)
-├── data/                      # All data artifacts (gitignored)
+│   ├── filter_pairs.py       # Step 3: LLM-based quality filter (drops warmup, spam, too-short)
+│   └── format_for_sft.py     # Step 4: Format into OpenAI SFT JSONL + train/test split
+├── ft/
+│   ├── finetuning.py         # OpenAI fine-tuning API wrapper
+│   ├── training_configs.py   # Model and hyperparameter configs
+│   ├── step_1_run_ft_jobs.py # Launch FT jobs from configs
+│   ├── step_2_update_experiments.py  # Poll job status, update model IDs
+│   ├── step_3_eval_run_ft_models.py  # Run FT models on test set
+│   ├── step_4_run_evaluation.py      # Evaluate with registered evaluators
+│   ├── evaluation/
+│   │   ├── core.py           # Generic evaluator runner
+│   │   ├── registry.py       # Auto-discovers evaluators
+│   │   └── evaluators/
+│   │       ├── base.py               # Abstract base class
+│   │       ├── bleu.py               # BLEU score
+│   │       ├── meteor.py             # METEOR score
+│   │       └── semantic_similarity.py # Cosine similarity (sentence-transformers)
+│   └── logging_config.py    # Logging setup
+├── .secrets/                 # API keys and OAuth tokens (gitignored)
+├── data/                     # All data artifacts (gitignored)
 └── pyproject.toml
 ```
 
 ## Data Processing Pipeline
 
-Each step reads from the previous step's output and writes a new file.
-Steps are run independently so you can re-run any step without repeating earlier ones.
-
 ```
-Gmail API -> mbox -> raw pairs -> cleaned pairs -> filtered pairs
-  (step 0)   (step 1)  (step 2)      (step 3)
+Gmail API -> mbox -> raw pairs -> cleaned pairs -> filtered pairs -> SFT format
+ (step 0)  (step 1)   (step 2)      (step 3)        (step 4)
 ```
 
 ### Step 0: Export from Gmail
-
-Fetches threads where you replied via the Gmail API. Requires OAuth credentials in `.secrets/`.
 
 ```bash
 uv run python data_processing/export_gmail.py
 ```
 
-Output: `data/new_threads.mbox`
-
 ### Step 1: Extract reply pairs
-
-Parses the mbox file, matches emails by `In-Reply-To` headers, and outputs raw email-reply pairs.
-Skips pairs where either body is missing.
 
 ```bash
 uv run python data_processing/extract_pairs.py
 ```
 
-Output: `data/reply_pairs_raw.jsonl`
-
 ### Step 2: Clean bodies (LLM)
 
-Sends each email body to Claude Haiku to strip signatures, contact blocks, disclaimers, quoted replies, and replaces URLs with `[LINK]`.
-
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
 uv run python data_processing/clean_pairs.py
 ```
 
-Output: `data/reply_pairs_clean.jsonl`
-
 ### Step 3: Quality filter (LLM)
-
-Drops low-quality pairs: warmup/toaster emails, spam, too-short exchanges, incoherent replies.
 
 ```bash
 uv run python data_processing/filter_pairs.py
 ```
 
-Output: `data/reply_pairs_filtered.jsonl`
+### Step 4: Format for SFT
 
-## Output Format
-
-Each line in the final JSONL is a flat record:
-
-```json
-{"subject": "Re: Meeting next week", "received_body": "Hi Meghdad, ...", "reply_body": "Hi Alex, ..."}
+```bash
+uv run python data_processing/format_for_sft.py
 ```
+
+Output: `data/sft_train.jsonl`, `data/sft_test.jsonl`
+
+## Fine-Tuning Pipeline
+
+After data processing, the `ft/` module handles fine-tuning and evaluation:
+
+1. Configure models and hyperparameters in `ft/training_configs.py`
+2. Launch fine-tuning jobs (step 1)
+3. Poll for completion (step 2)
+4. Run models on test set (step 3)
+5. Evaluate with BLEU, METEOR, and semantic similarity (step 4)
+
+Evaluators are auto-discovered from `ft/evaluation/evaluators/`. Add new evaluators by subclassing `BaseEvaluator`.
 
 ## Setup
 
@@ -82,4 +90,4 @@ Each line in the final JSONL is a flat record:
 uv sync
 ```
 
-Requires Python 3.11+ and `ANTHROPIC_API_KEY` for steps 2-3.
+Requires Python 3.11+. API keys in `.secrets/api_keps.json`.

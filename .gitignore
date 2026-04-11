@@ -18,3 +18,5 @@ wheels/
 *.jsonl
 *.json
 data/
+
+.DS_Store
