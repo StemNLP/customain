@@ -51,27 +51,36 @@ def eval_run_fted_model(ft_model_id: str,
 
 def eval_run_all_fted_models(test_file: str) -> None:
     """
-    Evaluate all fine-tuned models using the test split.
+    Evaluate all fine-tuned models and baseline models using the test split.
 
     Args:
         test_file (str): Path to the test dataset JSONL file.
     """
+    from .training_configs import baseline_models
+
     experiments_path = Path(__file__).parent / "_experiments.json"
     with open(experiments_path, 'r') as f:
         experiments = json.load(f)
-    
+
     results = {}
-    
+
+    # Run baseline (non-fine-tuned) models
+    for model_id in baseline_models:
+        logger.info(f"Evaluating baseline model {model_id}")
+        res = eval_run_fted_model(model_id, test_file)
+        results[f"baseline:{model_id}"] = res
+
+    # Run fine-tuned models
     for exp_id, exp_data in experiments.items():
         ft_model_id = exp_data.get('ft_model_id')
         if not ft_model_id:
             logger.warning(f"Experiment {exp_id} does not have a fine-tuned model ID. Skipping...")
             continue
-        
+
         logger.info(f"Evaluating experiment {exp_id} with model {ft_model_id}")
         res = eval_run_fted_model(ft_model_id, test_file)
         results[ft_model_id] = res
-    
+
     output_path = Path(__file__).parent / "_ft_models_eval_runs.json"
     with open(output_path, "w", encoding="utf-8") as out_f:
         json.dump(results, out_f, indent=2, ensure_ascii=False)

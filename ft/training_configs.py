@@ -1,3 +1,7 @@
+# Baselines — not fine-tuned, but evaluated on the test set for comparison
+baseline_models = [
+    "gpt-4.1-2025-04-14",
+]
 
 llms = [
     # "gpt-4.1-nano-2025-04-14", # Cheapest model $1.50 / hour or training
