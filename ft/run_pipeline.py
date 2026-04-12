@@ -74,7 +74,10 @@ def run_pipeline(train_file: str,
             batch_sizes=batch_sizes,
             learning_rate_multipliers=learning_rate_multipliers,
         )
-        run_experiments(configs)
+        experiments = run_experiments(configs)
+        if experiments is None:
+            logger.info("Pipeline aborted by user at step 1.")
+            return
     else:
         logger.info("Skipping step 1")
 

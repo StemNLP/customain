@@ -94,10 +94,24 @@ def run_experiments(training_configurations):
                     }
     """
     experiments = {}
-    
-    logger.warning(f"This will run \"{len(training_configurations)}\" experiments which can become costly.")
-    user_input = input(f"Do you want to continue experiments? (y/N): ")
-    if user_input.lower() != 'y':
+
+    from .estimate_cost import estimate_configs_cost
+    estimates, total_cost = estimate_configs_cost(training_configurations)
+
+    logger.warning(f"This will run {len(training_configurations)} experiment(s).")
+    logger.warning("Estimated fine-tuning cost:")
+    for est in estimates:
+        hp = est["hyperparameters"] or "defaults"
+        if est["cost_usd"] is None:
+            logger.warning(f"  - {est['model']} ({hp}): price unknown for this model "
+                           f"({est['tokens']} tokens × {est['n_epochs']} epochs)")
+        else:
+            logger.warning(f"  - {est['model']} ({hp}): ${est['cost_usd']:.2f} "
+                           f"({est['tokens']} tokens × {est['n_epochs']} epochs × ${est['price_per_1M']}/1M)")
+    logger.warning(f"Estimated total: ${total_cost:.2f}")
+
+    user_input = input("Do you want to continue experiments? (y/N): ").strip().lower()
+    if user_input != "y":
         logger.info("Aborting experiment run.")
         return None
     logger.info("Proceeding with experiments...")

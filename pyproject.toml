@@ -13,4 +13,5 @@ dependencies = [
     "nltk",
     "sentence-transformers",
     "wandb>=0.25.1",
+    "tiktoken>=0.12.0",
 ]
