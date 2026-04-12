@@ -21,7 +21,7 @@ llms = [
 # This approach is generally found to be effective for larger datasets. 
 # Set to: 4,8,16,32
 batch_sizes = [
-    # 4, 8
+    4, 8
 ]
 
 # Best when set to: 0.02, 0.05, 0.1, 0.2

@@ -8,16 +8,21 @@ from .logging_config import setup_logger
 
 logger = setup_logger(log_level=logging.INFO)
 
-# TODO Test if all combinations are generated correctly
 def generate_configurations(train_file: str,
                           test_file: str,
                           train_file_oai_id: str,
                           test_file_oai_id: str,
                           llms: list,
                           batch_sizes: list,
-                          learning_rate_multipliers: list):
+                          learning_rate_multipliers: list,
+                          n_epochs: int = 4):
     """
     Generate all hyperparameter configurations for fine-tuning experiments.
+
+    Always produces one default-hyperparameter config per LLM, plus one config
+    for every combination in the cross-product of the provided hyperparameter
+    lists. An empty list for a dimension means "do not sweep that dimension"
+    (OpenAI will use its default for it), not "skip the sweep entirely".
 
     Args:
         train_file (str): Local path to the training file.
@@ -25,16 +30,17 @@ def generate_configurations(train_file: str,
         train_file_oai_id (str): OpenAI file ID for the training file.
         test_file_oai_id (str): OpenAI file ID for the test file.
         llms (list): List of LLM model names to be used for fine-tuning.
-        batch_sizes (list): List of batch sizes to be used in the experiments.
-        learning_rate_multipliers (list): List of learning rate multipliers to be used in the experiments.
+        batch_sizes (list): List of batch sizes to sweep (empty = don't sweep).
+        learning_rate_multipliers (list): List of LR multipliers to sweep (empty = don't sweep).
+        n_epochs (int): Number of epochs for the hyperparameter-sweep configs.
 
     Returns:
         list: A list of dictionaries, each containing a configuration for a fine-tuning experiment.
     """
     logger.info("Generating configurations for fine-tuning experiments...")
     configs = []
-    
-    # Loop to add the default config (None hyperparams) for each model
+
+    # Default config (OpenAI picks all hyperparameters) — one per model.
     for llm in llms:
         configs.append({
             "model": llm,
@@ -44,24 +50,32 @@ def generate_configurations(train_file: str,
             "test_file_oai_id": test_file_oai_id,
             "hyperparameters": None
         })
-    
-    # Loop to generate all hyperparam combinations/configurations 
+
+    # Sweep configs. Use [None] as a sentinel for "don't sweep this dimension"
+    # so the cross-product loop still runs when one (or both) lists are empty.
+    bs_values = batch_sizes or [None]
+    lr_values = learning_rate_multipliers or [None]
+
+    # If both dimensions are empty there's nothing to sweep beyond the defaults.
+    if not batch_sizes and not learning_rate_multipliers:
+        return configs
+
     for llm in llms:
-        for batch_size in batch_sizes:
-            for lr_mult in learning_rate_multipliers:
-                config = {
+        for batch_size in bs_values:
+            for lr_mult in lr_values:
+                hparams = {"n_epochs": n_epochs}
+                if batch_size is not None:
+                    hparams["batch_size"] = batch_size
+                if lr_mult is not None:
+                    hparams["learning_rate_multiplier"] = lr_mult
+                configs.append({
                     "model": llm,
                     "training_file": train_file,
                     "training_file_oai_id": train_file_oai_id,
                     "test_file": test_file,
                     "test_file_oai_id": test_file_oai_id,
-                    "hyperparameters": {
-                        "batch_size": batch_size,
-                        "learning_rate_multiplier": lr_mult,
-                        "n_epochs": 4
-                    }
-                }
-                configs.append(config)
+                    "hyperparameters": hparams,
+                })
     return configs
 
 def run_experiments(training_configurations):
