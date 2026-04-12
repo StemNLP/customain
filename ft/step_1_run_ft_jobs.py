@@ -37,19 +37,22 @@ def generate_configurations(train_file: str,
     Returns:
         list: A list of dictionaries, each containing a configuration for a fine-tuning experiment.
     """
+    from .training_configs import include_default_hyperparam_config
+
     logger.info("Generating configurations for fine-tuning experiments...")
     configs = []
 
     # Default config (OpenAI picks all hyperparameters) — one per model.
-    for llm in llms:
-        configs.append({
-            "model": llm,
-            "training_file": train_file,
-            "training_file_oai_id": train_file_oai_id,
-            "test_file": test_file,
-            "test_file_oai_id": test_file_oai_id,
-            "hyperparameters": None
-        })
+    if include_default_hyperparam_config:
+        for llm in llms:
+            configs.append({
+                "model": llm,
+                "training_file": train_file,
+                "training_file_oai_id": train_file_oai_id,
+                "test_file": test_file,
+                "test_file_oai_id": test_file_oai_id,
+                "hyperparameters": None
+            })
 
     # Sweep configs. Use [None] as a sentinel for "don't sweep this dimension"
     # so the cross-product loop still runs when one (or both) lists are empty.

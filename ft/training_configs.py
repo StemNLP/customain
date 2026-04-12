@@ -28,3 +28,7 @@ batch_sizes = [
 learning_rate_multipliers = [
     # 0.05
 ]
+
+# If True, add one extra FT job per LLM with all hyperparameters left to OpenAI's
+# defaults — useful as a reference baseline alongside swept configs.
+include_default_hyperparam_config = True
