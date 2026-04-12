@@ -7,6 +7,8 @@ Usage:
 """
 
 import argparse
+import json
+import time
 from pathlib import Path
 import logging
 from .logging_config import setup_logger
@@ -15,6 +17,7 @@ logger = setup_logger(log_level=logging.INFO)
 
 TEST_TRAIN_LIMIT = 10
 TEST_TEST_LIMIT = 3
+POLL_INTERVAL_SECONDS = 300
 
 
 def _make_subset(src: str, limit: int, suffix: str) -> str:
@@ -76,9 +79,20 @@ def run_pipeline(train_file: str,
         logger.info("Skipping step 1")
 
     if 2 not in skip:
-        logger.info("=== Step 2: Updating experiment status ===")
+        logger.info("=== Step 2: Waiting for fine-tuning jobs to complete ===")
         from .step_2_update_experiments import update_experiments
-        update_experiments()
+        experiments_path = Path(__file__).parent / "_experiments.json"
+
+        while True:
+            update_experiments()
+            with open(experiments_path, "r") as f:
+                experiments = json.load(f)
+            if experiments and all("ft_model_id" in exp for exp in experiments.values()):
+                logger.info("All fine-tuning jobs completed successfully")
+                break
+            minutes, seconds = divmod(POLL_INTERVAL_SECONDS, 60)
+            logger.info(f"Not all jobs completed, waiting {minutes}m {seconds}s...")
+            time.sleep(POLL_INTERVAL_SECONDS)
     else:
         logger.info("Skipping step 2")
 
