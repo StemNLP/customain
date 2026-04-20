@@ -32,3 +32,7 @@ learning_rate_multipliers = [
 # If True, add one extra FT job per LLM with all hyperparameters left to OpenAI's
 # defaults — useful as a reference baseline alongside swept configs.
 include_default_hyperparam_config = True
+
+# Evaluator names to skip during evaluation (step 4).
+# e.g. ["bleu", "meteor", "semantic_similarity"]
+skip_evaluators = []

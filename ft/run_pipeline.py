@@ -109,7 +109,8 @@ def run_pipeline(train_file: str,
     if 4 not in skip:
         logger.info("=== Step 4: Running evaluation ===")
         from .step_4_run_evaluation import evaluate_all_ft_models
-        evaluate_all_ft_models()
+        from .training_configs import skip_evaluators
+        evaluate_all_ft_models(skip_evaluators=skip_evaluators)
     else:
         logger.info("Skipping step 4")
 

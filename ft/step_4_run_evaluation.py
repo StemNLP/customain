@@ -9,7 +9,8 @@ from .logging_config import setup_logger
 logger = setup_logger(log_level=logging.INFO)
 
 
-def evaluate_ft_model(model_results: list, evaluator_registry: dict) -> list[dict]:
+def evaluate_ft_model(model_results: list, evaluator_registry: dict,
+                      skip_evaluators: list[str] = []) -> list[dict]:
     """
     Evaluate all responses for a single fine-tuned model.
 
@@ -35,7 +36,7 @@ def evaluate_ft_model(model_results: list, evaluator_registry: dict) -> list[dic
         }
 
         try:
-            result = run_evaluators(evaluator_registry, eval_input)
+            result = run_evaluators(evaluator_registry, eval_input, skip_evaluators)
         except Exception as e:
             logger.error(f"Evaluator error for datapoint {datapoint_id}: {e}")
             continue
@@ -45,7 +46,7 @@ def evaluate_ft_model(model_results: list, evaluator_registry: dict) -> list[dic
     return all_results
 
 
-def evaluate_all_ft_models() -> None:
+def evaluate_all_ft_models(skip_evaluators: list[str] = []) -> None:
     """
     Evaluate all fine-tuned model results from _ft_models_eval_runs.json.
     Writes per-model evaluation results to _evaluation_results.json.
@@ -60,6 +61,8 @@ def evaluate_all_ft_models() -> None:
         logger.error("No evaluators found in registry. Add evaluators to ft/evaluation/evaluators/.")
         return
 
+    if skip_evaluators:
+        logger.info(f"Skipping evaluators: {skip_evaluators}")
     logger.info(f"Loaded evaluators: {list(evaluator_registry.keys())}")
 
     wandb.init(project="customain", job_type="evaluation")
@@ -72,7 +75,7 @@ def evaluate_all_ft_models() -> None:
 
     for ft_model_id, content in ft_models_eval_runs.items():
         logger.info(f"Evaluating model {ft_model_id} ({len(content)} datapoints)")
-        results = evaluate_ft_model(content, evaluator_registry)
+        results = evaluate_ft_model(content, evaluator_registry, skip_evaluators)
 
         # Compute averages per evaluator
         avg_metrics = {}
