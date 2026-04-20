@@ -35,4 +35,4 @@ include_default_hyperparam_config = True
 
 # Evaluator names to skip during evaluation (step 4).
 # e.g. ["bleu", "meteor", "semantic_similarity"]
-skip_evaluators = []
+skip_evaluators = ["bleu", "meteor", "semantic_similarity"]
