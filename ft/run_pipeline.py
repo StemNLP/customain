@@ -16,7 +16,7 @@ from .logging_config import setup_logger
 logger = setup_logger(log_level=logging.INFO)
 
 TEST_TRAIN_LIMIT = 10
-TEST_TEST_LIMIT = 3
+TEST_TEST_LIMIT = 5
 POLL_INTERVAL_SECONDS = 300
 
 
