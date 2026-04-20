@@ -20,9 +20,9 @@ import json
 import random
 from pathlib import Path
 
-SYSTEM_PROMPT = (
-    "You are a professional email assistant. "
-    "Given an incoming email, write an appropriate reply."
+USER_INSTRUCTION = (
+    "Write a reply to the following email. "
+    "Output only the reply body — no preamble, no subject line, no explanation."
 )
 TEST_RATIO = 0.1
 SEED = 42
@@ -34,11 +34,11 @@ def format_pair(pair: dict) -> dict:
     received = pair.get("received_body") or ""
     reply = pair.get("reply_body") or ""
 
-    user_content = f"Subject: {subject}\n\n{received}" if subject else received
+    email = f"Subject: {subject}\n\n{received}" if subject else received
+    user_content = f"{USER_INSTRUCTION}\n\n{email}"
 
     return {
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
             {"role": "assistant", "content": reply},
         ]
