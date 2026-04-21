@@ -1,93 +1,160 @@
-# Customain
+# 📧 Customain
 
-Email dataset pipeline for building instruction-tuning data from Gmail, and fine-tuning OpenAI models on it.
+**Fine-tune OpenAI models to sound like you.**
 
-## Repo Structure
+Customain extracts your writing style from real conversations and text content, builds a training dataset, and fine-tunes language models to mimic your tone, voice, and communication patterns. The result is an AI that writes the way *you* would — not generic, not robotic, but authentically yours.
+
+## How It Works
+
+```
+Your emails → Extract & clean → Fine-tune → A model that writes like you
+```
+
+1. **Connect** a content source (Gmail today, more coming)
+2. **Process** your text into high-quality training pairs
+3. **Fine-tune** OpenAI models on your writing style
+4. **Evaluate** how well the model captures your tone
+
+## Supported Sources
+
+| Source          | Status       |
+| --------------- | ------------ |
+| Gmail           | ✅ Available |
+| Outlook         | 🔜 Planned   |
+| Slack           | 🔜 Planned   |
+| Notion          | 🔜 Planned   |
+| Google Docs     | 🔜 Planned   |
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) package manager
+- OpenAI API key
+- Gmail OAuth credentials (for Gmail source)
+
+### Installation
+
+```bash
+git clone https://github.com/user/customain.git
+cd customain
+uv sync
+```
+
+### Configure API Keys
+
+Create `.secrets/api_keps.json`:
+
+```json
+{
+  "openai_api_key": "sk-...",
+  "wandb_api_key": "optional-for-tracking"
+}
+```
+
+For Gmail, you'll also need OAuth credentials — see [Google's guide](https://developers.google.com/gmail/api/quickstart/python).
+
+### Step 1 — Build Your Dataset
+
+```bash
+# Export your Gmail threads
+uv run python data_processing/export_gmail.py
+
+# Extract email-reply pairs
+uv run python data_processing/extract_pairs.py
+
+# Clean up signatures, quotes, links (LLM-powered)
+uv run python data_processing/clean_pairs.py
+
+# Filter out low-quality pairs (LLM-powered)
+uv run python data_processing/filter_pairs.py
+
+# Format for fine-tuning with train/test split
+uv run python data_processing/format_for_sft.py
+```
+
+Output: `data/sft_train.jsonl` and `data/sft_test.jsonl`
+
+### Step 2 — Fine-Tune & Evaluate
+
+Configure which models and hyperparameters to try in `ft/training_configs.py`, then run the full pipeline:
+
+```bash
+uv run python -m ft.run_pipeline \
+  --train-file data/sft_train.jsonl \
+  --test-file data/sft_test.jsonl
+```
+
+Or run a quick test with a small subset first:
+
+```bash
+uv run python -m ft.run_pipeline \
+  --train-file data/sft_train.jsonl \
+  --test-file data/sft_test.jsonl \
+  --test-run
+```
+
+You can also skip steps you've already completed:
+
+```bash
+# Skip data upload and job launch, just evaluate
+uv run python -m ft.run_pipeline \
+  --train-file data/sft_train.jsonl \
+  --test-file data/sft_test.jsonl \
+  --skip 1 2
+```
+
+The pipeline will:
+1. Upload data and launch fine-tuning jobs across your configured model/hyperparameter combinations
+2. Poll until all jobs complete
+3. Run each fine-tuned model on the test set
+4. Evaluate results and log metrics to [Weights & Biases](https://wandb.ai)
+
+## Evaluation
+
+Customain includes a pluggable evaluation framework. Evaluators are auto-discovered — just drop a new one into `ft/evaluation/evaluators/`.
+
+| Evaluator              | What it measures                           |
+| ---------------------- | ------------------------------------------ |
+| `tone_judge`           | LLM-as-judge scoring tone & style fidelity |
+| `bleu`                 | N-gram overlap (BLEU score)                |
+| `meteor`               | Token-level alignment (METEOR score)       |
+| `semantic_similarity`  | Embedding cosine similarity                |
+
+Configure which evaluators to skip in `ft/training_configs.py`:
+
+```python
+skip_evaluators = ["bleu", "meteor"]  # Only run tone_judge and semantic_similarity
+```
+
+## Project Structure
 
 ```
 customain/
 ├── data_processing/
-│   ├── export_gmail.py       # Step 0: Export replied threads from Gmail API
-│   ├── extract_pairs.py      # Step 1: mbox -> raw email-reply pairs (JSONL)
-│   ├── clean_pairs.py        # Step 2: LLM-based body cleaning (signatures, quotes, links)
-│   ├── filter_pairs.py       # Step 3: LLM-based quality filter (drops warmup, spam, too-short)
-│   └── format_for_sft.py     # Step 4: Format into OpenAI SFT JSONL + train/test split
+│   ├── export_gmail.py          # Export replied threads from Gmail API
+│   ├── extract_pairs.py         # mbox → raw email-reply pairs (JSONL)
+│   ├── clean_pairs.py           # LLM-based body cleaning
+│   ├── filter_pairs.py          # LLM-based quality filtering
+│   └── format_for_sft.py        # Format into OpenAI SFT JSONL + train/test split
 ├── ft/
-│   ├── finetuning.py         # OpenAI fine-tuning API wrapper
-│   ├── training_configs.py   # Model and hyperparameter configs
-│   ├── step_1_run_ft_jobs.py # Launch FT jobs from configs
-│   ├── step_2_update_experiments.py  # Poll job status, update model IDs
+│   ├── run_pipeline.py          # End-to-end fine-tuning pipeline
+│   ├── finetuning.py            # OpenAI fine-tuning API wrapper
+│   ├── training_configs.py      # Model, hyperparameter, and evaluator configs
+│   ├── step_1_run_ft_jobs.py    # Launch FT jobs
+│   ├── step_2_update_experiments.py  # Poll job status
 │   ├── step_3_eval_run_ft_models.py  # Run FT models on test set
-│   ├── step_4_run_evaluation.py      # Evaluate with registered evaluators
-│   ├── evaluation/
-│   │   ├── core.py           # Generic evaluator runner
-│   │   ├── registry.py       # Auto-discovers evaluators
-│   │   └── evaluators/
-│   │       ├── base.py               # Abstract base class
-│   │       ├── bleu.py               # BLEU score
-│   │       ├── meteor.py             # METEOR score
-│   │       └── semantic_similarity.py # Cosine similarity (sentence-transformers)
-│   └── logging_config.py    # Logging setup
-├── .secrets/                 # API keys and OAuth tokens (gitignored)
-├── data/                     # All data artifacts (gitignored)
+│   ├── step_4_run_evaluation.py      # Run evaluators
+│   └── evaluation/
+│       ├── core.py              # Evaluator runner
+│       ├── registry.py          # Auto-discovery registry
+│       └── evaluators/          # Drop-in evaluator modules
+├── .secrets/                    # API keys and OAuth tokens (gitignored)
+├── data/                        # All data artifacts (gitignored)
 └── pyproject.toml
 ```
 
-## Data Processing Pipeline
+## License
 
-```
-Gmail API -> mbox -> raw pairs -> cleaned pairs -> filtered pairs -> SFT format
- (step 0)  (step 1)   (step 2)      (step 3)        (step 4)
-```
-
-### Step 0: Export from Gmail
-
-```bash
-uv run python data_processing/export_gmail.py
-```
-
-### Step 1: Extract reply pairs
-
-```bash
-uv run python data_processing/extract_pairs.py
-```
-
-### Step 2: Clean bodies (LLM)
-
-```bash
-uv run python data_processing/clean_pairs.py
-```
-
-### Step 3: Quality filter (LLM)
-
-```bash
-uv run python data_processing/filter_pairs.py
-```
-
-### Step 4: Format for SFT
-
-```bash
-uv run python data_processing/format_for_sft.py
-```
-
-Output: `data/sft_train.jsonl`, `data/sft_test.jsonl`
-
-## Fine-Tuning Pipeline
-
-After data processing, the `ft/` module handles fine-tuning and evaluation:
-
-1. Configure models and hyperparameters in `ft/training_configs.py`
-2. Launch fine-tuning jobs (step 1)
-3. Poll for completion (step 2)
-4. Run models on test set (step 3)
-5. Evaluate with BLEU, METEOR, and semantic similarity (step 4)
-
-Evaluators are auto-discovered from `ft/evaluation/evaluators/`. Add new evaluators by subclassing `BaseEvaluator`.
-
-## Setup
-
-```bash
-uv sync
-```
-
-Requires Python 3.11+. API keys in `.secrets/api_keps.json`.
+MIT
