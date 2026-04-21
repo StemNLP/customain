@@ -1,4 +1,15 @@
-# 📧 Customain
+```
+   ┌─────────────────-┐      ┌───────────┐     ┌─────────────────┐
+   │  Your writing:   │      │           │     │                 │
+   │                  │      │ Fine-Tune │     │  AI that writes │
+   |                  │      | on YOUR   |     │    and sounds   │
+   │  emails, docs,   │─────>│  style    │────>│  just like you. │
+   │  messages, notes │      │           │     │                 │
+   │  ...anything     │      │           │     │                 │
+   └─────────────────-┘      └───────────┘     └─────────────────┘
+```
+
+# Customain
 
 **Fine-tune OpenAI models to sound like you.**
 
