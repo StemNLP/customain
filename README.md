@@ -22,9 +22,9 @@ Your emails → Extract & clean → Fine-tune → A model that writes like you
 ```
 
 1. **Connect** a content source (Gmail today, more coming)
-2. **Process** your text into high-quality training pairs
+2. **Process** your text into high-quality, anonymized training pairs
 3. **Fine-tune** OpenAI models on your writing style
-4. **Evaluate** how well the model captures your tone
+4. **Evaluate** how well the model captures your tone — with both classical metrics and a trained authorship classifier
 
 ## Supported Sources
 
@@ -81,6 +81,9 @@ uv run python data_processing/clean_pairs.py
 # Filter out low-quality pairs (LLM-powered)
 uv run python data_processing/filter_pairs.py
 
+# Anonymize person names → [NAME] (LLM-powered)
+uv run python data_processing/anonymize_pairs.py
+
 # Format for fine-tuning with train/test split
 uv run python data_processing/format_for_sft.py
 ```
@@ -126,17 +129,34 @@ The pipeline will:
 
 Customain includes a pluggable evaluation framework. Evaluators are auto-discovered — just drop a new one into `ft/evaluation/evaluators/`.
 
-| Evaluator              | What it measures                           |
-| ---------------------- | ------------------------------------------ |
-| `tone_judge`           | LLM-as-judge scoring tone & style fidelity |
-| `bleu`                 | N-gram overlap (BLEU score)                |
-| `meteor`               | Token-level alignment (METEOR score)       |
-| `semantic_similarity`  | Embedding cosine similarity                |
+| Evaluator                | What it measures                           |
+| ------------------------ | ------------------------------------------ |
+| `authorship_classifier`  | CNN-based authorship probability score     |
+| `tone_judge`             | LLM-as-judge scoring tone & style fidelity |
+| `bleu`                   | N-gram overlap (BLEU score)                |
+| `meteor`                 | Token-level alignment (METEOR score)       |
+| `semantic_similarity`    | Embedding cosine similarity                |
 
 Configure which evaluators to skip in `ft/training_configs.py`:
 
 ```python
 skip_evaluators = ["bleu", "meteor"]  # Only run tone_judge and semantic_similarity
+```
+
+### Authorship Classifier
+
+A character-level CNN trained to distinguish the author's writing from other people's emails. Unlike LLM-as-judge evaluators, this learns style patterns directly from data.
+
+```bash
+# Prepare training data from existing SFT data
+uv run python -m classifiers.authorship.prepare_data
+
+# Train (logs to W&B under customain-classifiers)
+uv run python -m classifiers.authorship.train \
+  --train-data data/classifiers/authorship/train.jsonl \
+  --val-data data/classifiers/authorship/val.jsonl
+
+# The authorship_classifier evaluator auto-registers and uses the trained checkpoint
 ```
 
 ## Project Structure
@@ -148,6 +168,7 @@ customain/
 │   ├── extract_pairs.py         # mbox → raw email-reply pairs (JSONL)
 │   ├── clean_pairs.py           # LLM-based body cleaning
 │   ├── filter_pairs.py          # LLM-based quality filtering
+│   ├── anonymize_pairs.py       # LLM-based name/PII anonymization
 │   └── format_for_sft.py        # Format into OpenAI SFT JSONL + train/test split
 ├── ft/
 │   ├── run_pipeline.py          # End-to-end fine-tuning pipeline
@@ -161,6 +182,13 @@ customain/
 │       ├── core.py              # Evaluator runner
 │       ├── registry.py          # Auto-discovery registry
 │       └── evaluators/          # Drop-in evaluator modules
+├── classifiers/
+│   └── authorship/
+│       ├── prepare_data.py      # Extract classifier data from SFT files
+│       ├── dataset.py           # Char-level tokenization and Dataset
+│       ├── model.py             # TextCNN architecture
+│       ├── train.py             # Training loop with W&B logging
+│       └── predict.py           # Inference utility
 ├── .secrets/                    # API keys and OAuth tokens (gitignored)
 ├── data/                        # All data artifacts (gitignored)
 └── pyproject.toml
