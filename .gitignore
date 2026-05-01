@@ -22,3 +22,6 @@ data/
 .DS_Store
 
 wandb/
+
+# Classifier checkpoints
+classifiers/checkpoints/
