@@ -5,8 +5,8 @@ Reads cleaned reply pairs JSONL, asks the LLM to judge each pair,
 writes only the pairs that pass to a new JSONL file.
 
 Usage:
-    uv run python data_processing/filter_pairs.py
-    uv run python data_processing/filter_pairs.py --input data/clean.jsonl --output data/filtered.jsonl
+    uv run python gmail_preprocessing_pipeline/filter_pairs.py
+    uv run python gmail_preprocessing_pipeline/filter_pairs.py --input data/clean.jsonl --output data/filtered.jsonl
 """
 
 import argparse

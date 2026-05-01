@@ -6,8 +6,8 @@ everything else exactly. Designed as a pipeline step between
 filter_pairs.py and format_for_sft.py.
 
 Usage:
-    uv run python data_processing/anonymize_pairs.py
-    uv run python data_processing/anonymize_pairs.py --input data/reply_pairs_filtered.jsonl
+    uv run python gmail_preprocessing_pipeline/anonymize_pairs.py
+    uv run python gmail_preprocessing_pipeline/anonymize_pairs.py --input data/reply_pairs_filtered.jsonl
 """
 
 import argparse

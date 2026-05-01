@@ -5,8 +5,8 @@ Reads raw reply pairs JSONL, sends each body to Claude Haiku for cleaning,
 writes cleaned pairs to a new JSONL file.
 
 Usage:
-    uv run python data_processing/clean_pairs.py
-    uv run python data_processing/clean_pairs.py --input data/raw.jsonl --output data/clean.jsonl
+    uv run python gmail_preprocessing_pipeline/clean_pairs.py
+    uv run python gmail_preprocessing_pipeline/clean_pairs.py --input data/raw.jsonl --output data/clean.jsonl
 """
 
 import argparse

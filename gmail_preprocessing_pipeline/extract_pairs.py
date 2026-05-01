@@ -2,8 +2,8 @@
 """Extract email-reply pairs from an mbox file.
 
 Usage:
-    uv run python data_processing/extract_pairs.py
-    uv run python data_processing/extract_pairs.py --input data/foo.mbox --output data/foo_pairs.jsonl
+    uv run python gmail_preprocessing_pipeline/extract_pairs.py
+    uv run python gmail_preprocessing_pipeline/extract_pairs.py --input data/foo.mbox --output data/foo_pairs.jsonl
 """
 
 import argparse
@@ -135,6 +135,20 @@ def iter_reply_pairs(mbox_path: Path) -> Iterator[ReplyPair]:
             )
 
 # ---------------------------------------------------------------------------
+# Processing
+# ---------------------------------------------------------------------------
+
+def process_file(input_path: Path, output_path: Path) -> None:
+    print(f"Extracting reply pairs from {input_path} ...")
+    count = 0
+    with output_path.open("w", encoding="utf-8") as f:
+        for pair in iter_reply_pairs(input_path):
+            f.write(json.dumps(pair.to_dict(), ensure_ascii=False) + "\n")
+            count += 1
+    print(f"Done. {count} reply pairs -> {output_path}")
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -143,14 +157,7 @@ def main():
     parser.add_argument("--input", type=Path, default=Path("data/new_threads.mbox"))
     parser.add_argument("--output", type=Path, default=Path("data/reply_pairs_raw.jsonl"))
     args = parser.parse_args()
-
-    print(f"Extracting reply pairs from {args.input} ...")
-    count = 0
-    with args.output.open("w", encoding="utf-8") as f:
-        for pair in iter_reply_pairs(args.input):
-            f.write(json.dumps(pair.to_dict(), ensure_ascii=False) + "\n")
-            count += 1
-    print(f"Done. {count} reply pairs -> {args.output}")
+    process_file(args.input, args.output)
 
 
 if __name__ == "__main__":

@@ -68,26 +68,31 @@ For Gmail, you'll also need OAuth credentials — see [Google's guide](https://d
 
 ### Step 1 — Build Your Dataset
 
+Run the full Gmail preprocessing pipeline:
+
 ```bash
-# Export your Gmail threads
-uv run python data_processing/export_gmail.py
-
-# Extract email-reply pairs
-uv run python data_processing/extract_pairs.py
-
-# Clean up signatures, quotes, links (LLM-powered)
-uv run python data_processing/clean_pairs.py
-
-# Filter out low-quality pairs (LLM-powered)
-uv run python data_processing/filter_pairs.py
-
-# Anonymize person names → [NAME] (LLM-powered)
-uv run python data_processing/anonymize_pairs.py
-
-# Format for fine-tuning with train/test split
-uv run python data_processing/format_for_sft.py
+uv run python -m gmail_preprocessing_pipeline.run_pipeline
 ```
 
+Or skip steps you've already completed:
+
+```bash
+# Already exported Gmail — start from extract
+uv run python -m gmail_preprocessing_pipeline.run_pipeline --start-from 2
+
+# Re-run just anonymize + format
+uv run python -m gmail_preprocessing_pipeline.run_pipeline --start-from 5
+```
+
+The pipeline runs 6 steps:
+
+1. **Export** Gmail threads to mbox
+2. **Extract** email-reply pairs
+3. **Clean** signatures, quotes, links (LLM)
+4. **Filter** low-quality pairs (LLM)
+5. **Anonymize** person names → `[NAME]` (LLM)
+6. **Format** into SFT train/test split
+email processing pipeline
 Output: `data/sft_train.jsonl` and `data/sft_test.jsonl`
 
 ### Step 2 — Fine-Tune & Evaluate
@@ -163,7 +168,8 @@ uv run python -m classifiers.authorship.train \
 
 ```
 customain/
-├── data_processing/
+├── gmail_preprocessing_pipeline/
+│   ├── run_pipeline.py          # End-to-end preprocessing orchestrator
 │   ├── export_gmail.py          # Export replied threads from Gmail API
 │   ├── extract_pairs.py         # mbox → raw email-reply pairs (JSONL)
 │   ├── clean_pairs.py           # LLM-based body cleaning
