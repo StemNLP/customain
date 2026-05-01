@@ -12,6 +12,8 @@ Usage:
 import argparse
 from pathlib import Path
 
+from ._load_secrets import load_secrets
+
 STEPS = [
     (1, "Export Gmail threads"),
     (2, "Extract reply pairs"),
@@ -27,6 +29,7 @@ def run_pipeline(
     skip_steps: list[int] | None = None,
     start_from: int = 1,
 ) -> None:
+    load_secrets()
     skip = set(skip_steps or [])
     skip |= set(range(1, start_from))
     data = Path(data_dir)

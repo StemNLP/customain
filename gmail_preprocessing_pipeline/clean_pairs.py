@@ -89,6 +89,9 @@ def process_file(input_path: Path, output_path: Path):
 
 
 def main():
+    from ._load_secrets import load_secrets
+    load_secrets()
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=Path("data/_intermediate/reply_pairs_raw.jsonl"))
     parser.add_argument("--output", type=Path, default=Path("data/_intermediate/reply_pairs_clean.jsonl"))
