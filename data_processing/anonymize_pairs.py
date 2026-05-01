@@ -24,15 +24,11 @@ TEST_LIMIT = 20
 
 SYSTEM_PROMPT = """\
 You are a PII anonymizer. Your job is to replace all person names in the \
-given text with [NAME]. This includes first names, last names, and full names \
-in any position: greetings, sign-offs, mid-sentence mentions, subject lines, \
-email introductions, signatures, etc.
+given text with [NAME]. This includes first names, last names, and full \
+names in any position: greetings, sign-offs, mid-sentence mentions, \
+subject lines, introductions, etc.
 
-Replace ONLY person names. Preserve EXACTLY:
-- All other text, formatting, line breaks, and whitespace
-- Company names, product names, place names
-- URLs (already replaced with [LINK]) and email addresses
-- Dates, times, numbers
+Replace ONLY person names. Do not touch anything else.
 
 Return ONLY the anonymized text. No explanation, no wrapping."""
 
