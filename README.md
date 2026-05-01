@@ -197,6 +197,10 @@ customain/
 │       └── predict.py           # Inference utility
 ├── .secrets/                    # API keys and OAuth tokens (gitignored)
 ├── data/                        # All data artifacts (gitignored)
+│   ├── _intermediate/           # Pipeline artifacts (mbox, raw/clean/filtered pairs)
+│   ├── sft_train.jsonl          # Final training data
+│   ├── sft_test.jsonl           # Final test data
+│   └── classifiers/authorship/  # Classifier training data
 └── pyproject.toml
 ```
 

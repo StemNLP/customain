@@ -12,7 +12,7 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 BASE_DIR = Path(__file__).parent.parent
 CREDS_FILE = str(BASE_DIR / ".secrets" / "credentials.json")
 TOKEN_FILE = str(BASE_DIR / ".secrets" / "token.json")
-MBOX_FILE = str(BASE_DIR / "data" / "new_threads.mbox")
+MBOX_FILE = str(BASE_DIR / "data" / "_intermediate" / "new_threads.mbox")
 
 
 def get_service():

@@ -87,8 +87,8 @@ def process_file(input_path: Path, output_path: Path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=Path("data/reply_pairs_clean.jsonl"))
-    parser.add_argument("--output", type=Path, default=Path("data/reply_pairs_filtered.jsonl"))
+    parser.add_argument("--input", type=Path, default=Path("data/_intermediate/reply_pairs_clean.jsonl"))
+    parser.add_argument("--output", type=Path, default=Path("data/_intermediate/reply_pairs_filtered.jsonl"))
     args = parser.parse_args()
 
     if not args.input.exists():

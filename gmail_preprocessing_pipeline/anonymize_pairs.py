@@ -80,10 +80,10 @@ def process_file(input_path: Path, output_path: Path) -> None:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--input", type=Path, default=Path("data/reply_pairs_filtered.jsonl")
+        "--input", type=Path, default=Path("data/_intermediate/reply_pairs_filtered.jsonl")
     )
     parser.add_argument(
-        "--output", type=Path, default=Path("data/reply_pairs_anon.jsonl")
+        "--output", type=Path, default=Path("data/_intermediate/reply_pairs_anon.jsonl")
     )
     args = parser.parse_args()
 

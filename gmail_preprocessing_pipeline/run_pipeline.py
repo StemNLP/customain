@@ -30,9 +30,12 @@ def run_pipeline(
     skip = set(skip_steps or [])
     skip |= set(range(1, start_from))
     data = Path(data_dir)
+    tmp = data / "_intermediate"
+    tmp.mkdir(parents=True, exist_ok=True)
 
     print("Gmail preprocessing pipeline")
     print(f"  Data directory: {data}")
+    print(f"  Intermediate:   {tmp}")
     print(f"  Skipping steps: {sorted(skip) if skip else 'none'}")
     print()
 
@@ -49,7 +52,7 @@ def run_pipeline(
         print("\n=== Step 2/6: Extract reply pairs ===")
         from .extract_pairs import process_file
 
-        process_file(data / "new_threads.mbox", data / "reply_pairs_raw.jsonl")
+        process_file(tmp / "new_threads.mbox", tmp / "reply_pairs_raw.jsonl")
     else:
         print("=== Step 2/6: Extract reply pairs [skipped] ===")
 
@@ -57,7 +60,7 @@ def run_pipeline(
         print("\n=== Step 3/6: Clean pairs ===")
         from .clean_pairs import process_file
 
-        process_file(data / "reply_pairs_raw.jsonl", data / "reply_pairs_clean.jsonl")
+        process_file(tmp / "reply_pairs_raw.jsonl", tmp / "reply_pairs_clean.jsonl")
     else:
         print("=== Step 3/6: Clean pairs [skipped] ===")
 
@@ -66,7 +69,7 @@ def run_pipeline(
         from .filter_pairs import process_file
 
         process_file(
-            data / "reply_pairs_clean.jsonl", data / "reply_pairs_filtered.jsonl"
+            tmp / "reply_pairs_clean.jsonl", tmp / "reply_pairs_filtered.jsonl"
         )
     else:
         print("=== Step 4/6: Filter pairs [skipped] ===")
@@ -76,7 +79,7 @@ def run_pipeline(
         from .anonymize_pairs import process_file
 
         process_file(
-            data / "reply_pairs_filtered.jsonl", data / "reply_pairs_anon.jsonl"
+            tmp / "reply_pairs_filtered.jsonl", tmp / "reply_pairs_anon.jsonl"
         )
     else:
         print("=== Step 5/6: Anonymize names [skipped] ===")
@@ -85,7 +88,7 @@ def run_pipeline(
         print("\n=== Step 6/6: Format for SFT ===")
         from .format_for_sft import process_file
 
-        process_file(data / "reply_pairs_anon.jsonl", data)
+        process_file(tmp / "reply_pairs_anon.jsonl", data)
     else:
         print("=== Step 6/6: Format for SFT [skipped] ===")
 

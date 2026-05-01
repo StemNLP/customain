@@ -77,7 +77,7 @@ def process_file(
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=Path("data/reply_pairs_anon.jsonl"))
+    parser.add_argument("--input", type=Path, default=Path("data/_intermediate/reply_pairs_anon.jsonl"))
     parser.add_argument("--output-dir", type=Path, default=Path("data"))
     parser.add_argument("--test-ratio", type=float, default=TEST_RATIO)
     parser.add_argument("--seed", type=int, default=SEED)
