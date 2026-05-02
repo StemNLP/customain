@@ -15,6 +15,7 @@ def generate_configurations(train_file: str,
                           llms: list,
                           batch_sizes: list,
                           learning_rate_multipliers: list,
+                          training_method: str = "supervised",
                           n_epochs: int = 4):
     """
     Generate all hyperparameter configurations for fine-tuning experiments.
@@ -32,6 +33,7 @@ def generate_configurations(train_file: str,
         llms (list): List of LLM model names to be used for fine-tuning.
         batch_sizes (list): List of batch sizes to sweep (empty = don't sweep).
         learning_rate_multipliers (list): List of LR multipliers to sweep (empty = don't sweep).
+        training_method (str): "supervised" or "dpo".
         n_epochs (int): Number of epochs for the hyperparameter-sweep configs.
 
     Returns:
@@ -39,20 +41,21 @@ def generate_configurations(train_file: str,
     """
     from .training_configs import include_default_hyperparam_config
 
-    logger.info("Generating configurations for fine-tuning experiments...")
+    logger.info(f"Generating {training_method} configurations for fine-tuning experiments...")
     configs = []
+
+    base = {
+        "training_file": train_file,
+        "training_file_oai_id": train_file_oai_id,
+        "test_file": test_file,
+        "test_file_oai_id": test_file_oai_id,
+        "training_method": training_method,
+    }
 
     # Default config (OpenAI picks all hyperparameters) — one per model.
     if include_default_hyperparam_config:
         for llm in llms:
-            configs.append({
-                "model": llm,
-                "training_file": train_file,
-                "training_file_oai_id": train_file_oai_id,
-                "test_file": test_file,
-                "test_file_oai_id": test_file_oai_id,
-                "hyperparameters": None
-            })
+            configs.append({**base, "model": llm, "hyperparameters": None})
 
     # Sweep configs. Use [None] as a sentinel for "don't sweep this dimension"
     # so the cross-product loop still runs when one (or both) lists are empty.
@@ -71,14 +74,7 @@ def generate_configurations(train_file: str,
                     hparams["batch_size"] = batch_size
                 if lr_mult is not None:
                     hparams["learning_rate_multiplier"] = lr_mult
-                configs.append({
-                    "model": llm,
-                    "training_file": train_file,
-                    "training_file_oai_id": train_file_oai_id,
-                    "test_file": test_file,
-                    "test_file_oai_id": test_file_oai_id,
-                    "hyperparameters": hparams,
-                })
+                configs.append({**base, "model": llm, "hyperparameters": hparams})
     return configs
 
 def run_experiments(training_configurations):
@@ -113,7 +109,6 @@ def run_experiments(training_configurations):
     experiments = {}
 
     from .estimate_cost import estimate_configs_cost
-    from .training_configs import training_method
     estimates, total_cost = estimate_configs_cost(training_configurations)
 
     logger.warning(f"This will run {len(training_configurations)} experiment(s).")
@@ -142,7 +137,8 @@ def run_experiments(training_configurations):
             logger.error(f"Missing required fields in config: {config}. Skipping this configuration.")
             continue
             
-        if training_method == "supervised":
+        method = config.get("training_method", "supervised")
+        if method == "supervised":
             method_config = None if config["hyperparameters"] is None else {
                 "type": "supervised",
                 "supervised": {
@@ -150,9 +146,9 @@ def run_experiments(training_configurations):
                 }
             }
         else:
-            method_config = {"type": training_method}
+            method_config = {"type": method}
             if config["hyperparameters"] is not None:
-                method_config[training_method] = {
+                method_config[method] = {
                     "hyperparameters": config["hyperparameters"]
                 }
         
@@ -169,6 +165,7 @@ def run_experiments(training_configurations):
             # Store experiment config with UUID as key
             experiment_data = {
                 "model": config["model"],
+                "training_method": method,
                 "training_file": config["training_file"],
                 "training_file_oai_id": config["training_file_oai_id"],
                 "test_file": config["test_file"] if "test_file" in config else None,
@@ -181,6 +178,7 @@ def run_experiments(training_configurations):
             wandb.log({
                 "experiment_id": experiment_id,
                 "model": config["model"],
+                "training_method": method,
                 "ft_job_id": response.id,
                 **(config["hyperparameters"] or {}),
             })

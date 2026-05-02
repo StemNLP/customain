@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 """Run the fine-tuning pipeline (steps 1-4).
 
+Reads training_methods from training_configs.py and auto-resolves data files:
+  - supervised -> data/sft_train.jsonl, data/sft_test.jsonl
+  - dpo        -> data/dpo_train.jsonl, data/dpo_test.jsonl
+
 Usage:
-    uv run python -m ft.run_pipeline --train-file data/sft_train.jsonl --test-file data/sft_test.jsonl
+    uv run python -m ft.run_pipeline
+    uv run python -m ft.run_pipeline --data-dir data
     uv run python -m ft.run_pipeline --skip 1 2   # skip steps 1 and 2, only run 3 and 4
 """
 
@@ -19,6 +24,11 @@ TEST_TRAIN_LIMIT = 50
 TEST_TEST_LIMIT = 25
 POLL_INTERVAL_SECONDS = 300
 
+DATA_FILE_PREFIXES = {
+    "supervised": "sft",
+    "dpo": "dpo",
+}
+
 
 def _make_subset(src: str, limit: int, suffix: str) -> str:
     """Write the first `limit` lines of `src` to a sibling file and return its path."""
@@ -30,51 +40,58 @@ def _make_subset(src: str, limit: int, suffix: str) -> str:
     return str(dst_path)
 
 
-def run_pipeline(train_file: str,
-                 test_file: str,
-                 train_file_oai_id: str | None = None,
-                 test_file_oai_id: str | None = None,
+def run_pipeline(data_dir: str = "data",
                  skip_steps: list[int] | None = None,
                  test_run: bool = False):
     """
     Run fine-tuning steps 1 through 4.
 
+    Reads training_methods from training_configs.py and auto-resolves data
+    files per method (sft_*.jsonl for supervised, dpo_*.jsonl for dpo).
+
     Args:
-        train_file: Local path to training JSONL.
-        test_file: Local path to test JSONL.
-        train_file_oai_id: OpenAI file ID for training data (if already uploaded).
-        test_file_oai_id: OpenAI file ID for test data (if already uploaded).
+        data_dir: Directory containing training/test JSONL files.
         skip_steps: List of step numbers to skip (e.g. [1, 2]).
         test_run: If True, subset to TEST_TRAIN_LIMIT train and TEST_TEST_LIMIT test examples.
     """
     skip = set(skip_steps or [])
+    data_path = Path(data_dir)
 
     if test_run:
         logger.info(f"=== TEST RUN: {TEST_TRAIN_LIMIT} train, {TEST_TEST_LIMIT} test ===")
-        train_file = _make_subset(train_file, TEST_TRAIN_LIMIT, "_testrun")
-        test_file = _make_subset(test_file, TEST_TEST_LIMIT, "_testrun")
 
     if 1 not in skip:
         logger.info("=== Step 1: Generating configs and launching FT jobs ===")
         from .step_1_run_ft_jobs import generate_configurations, run_experiments
-        from .training_configs import llms, batch_sizes, learning_rate_multipliers
+        from .training_configs import training_methods, llms, batch_sizes, learning_rate_multipliers
         from .finetuning import upload_file_for_ft
 
-        if not train_file_oai_id:
-            train_file_oai_id = upload_file_for_ft(train_file)
-        if not test_file_oai_id:
-            test_file_oai_id = upload_file_for_ft(test_file)
+        all_configs = []
+        for method in training_methods:
+            prefix = DATA_FILE_PREFIXES[method]
+            train_file = str(data_path / f"{prefix}_train.jsonl")
+            test_file = str(data_path / f"{prefix}_test.jsonl")
 
-        configs = generate_configurations(
-            train_file=train_file,
-            test_file=test_file,
-            train_file_oai_id=train_file_oai_id,
-            test_file_oai_id=test_file_oai_id,
-            llms=llms,
-            batch_sizes=batch_sizes,
-            learning_rate_multipliers=learning_rate_multipliers,
-        )
-        experiments = run_experiments(configs)
+            if test_run:
+                train_file = _make_subset(train_file, TEST_TRAIN_LIMIT, "_testrun")
+                test_file = _make_subset(test_file, TEST_TEST_LIMIT, "_testrun")
+
+            train_oai_id = upload_file_for_ft(train_file)
+            test_oai_id = upload_file_for_ft(test_file)
+
+            configs = generate_configurations(
+                train_file=train_file,
+                test_file=test_file,
+                train_file_oai_id=train_oai_id,
+                test_file_oai_id=test_oai_id,
+                llms=llms,
+                batch_sizes=batch_sizes,
+                learning_rate_multipliers=learning_rate_multipliers,
+                training_method=method,
+            )
+            all_configs.extend(configs)
+
+        experiments = run_experiments(all_configs)
         if experiments is None:
             logger.info("Pipeline aborted by user at step 1.")
             return
@@ -102,7 +119,10 @@ def run_pipeline(train_file: str,
     if 3 not in skip:
         logger.info("=== Step 3: Running FT models on test set ===")
         from .step_3_eval_run_ft_models import eval_run_all_fted_models
-        eval_run_all_fted_models(test_file=test_file)
+        eval_test_file = str(data_path / "sft_test.jsonl")
+        if test_run:
+            eval_test_file = _make_subset(eval_test_file, TEST_TEST_LIMIT, "_testrun")
+        eval_run_all_fted_models(test_file=eval_test_file)
     else:
         logger.info("Skipping step 3")
 
@@ -119,10 +139,8 @@ def run_pipeline(train_file: str,
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--train-file", type=str, required=True)
-    parser.add_argument("--test-file", type=str, required=True)
-    parser.add_argument("--train-file-oai-id", type=str, default=None)
-    parser.add_argument("--test-file-oai-id", type=str, default=None)
+    parser.add_argument("--data-dir", type=str, default="data",
+                        help="Directory containing training/test JSONL files (default: data)")
     parser.add_argument("--skip", type=int, nargs="*", default=[],
                         help="Step numbers to skip (e.g. --skip 1 2)")
     parser.add_argument("--test-run", action="store_true",
@@ -130,10 +148,7 @@ def main():
     args = parser.parse_args()
 
     run_pipeline(
-        train_file=args.train_file,
-        test_file=args.test_file,
-        train_file_oai_id=args.train_file_oai_id,
-        test_file_oai_id=args.test_file_oai_id,
+        data_dir=args.data_dir,
         skip_steps=args.skip,
         test_run=args.test_run,
     )
