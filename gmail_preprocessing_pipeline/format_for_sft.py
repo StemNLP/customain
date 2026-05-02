@@ -24,7 +24,7 @@ USER_INSTRUCTION = (
     "Write a reply to the following email. "
     "Output only the reply body — no preamble, no subject line, no explanation."
 )
-TEST_RATIO = 0.1
+TEST_RATIO = 0.2
 SEED = 42
 
 
