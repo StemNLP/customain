@@ -33,6 +33,10 @@ learning_rate_multipliers = [
 # defaults — useful as a reference baseline alongside swept configs.
 include_default_hyperparam_config = True
 
+# Training method: "supervised" (SFT) or "dpo" (Direct Preference Optimization).
+# When using "dpo", pass dpo_train.jsonl / dpo_test.jsonl to the FT pipeline.
+training_method = "supervised"
+
 # Evaluator names to skip during evaluation (step 4).
 # e.g. ["bleu", "meteor", "semantic_similarity"]
 skip_evaluators = ["bleu", "meteor", "semantic_similarity"]

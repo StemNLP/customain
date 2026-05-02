@@ -113,6 +113,7 @@ def run_experiments(training_configurations):
     experiments = {}
 
     from .estimate_cost import estimate_configs_cost
+    from .training_configs import training_method
     estimates, total_cost = estimate_configs_cost(training_configurations)
 
     logger.warning(f"This will run {len(training_configurations)} experiment(s).")
@@ -141,12 +142,19 @@ def run_experiments(training_configurations):
             logger.error(f"Missing required fields in config: {config}. Skipping this configuration.")
             continue
             
-        method_config = None if config["hyperparameters"] is None else {
-            "type": "supervised",
-            "supervised": {
-                "hyperparameters": config["hyperparameters"]
+        if training_method == "supervised":
+            method_config = None if config["hyperparameters"] is None else {
+                "type": "supervised",
+                "supervised": {
+                    "hyperparameters": config["hyperparameters"]
+                }
             }
-        }
+        else:
+            method_config = {"type": training_method}
+            if config["hyperparameters"] is not None:
+                method_config[training_method] = {
+                    "hyperparameters": config["hyperparameters"]
+                }
         
         try:
             response = run_finetuning(

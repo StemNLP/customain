@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""Run the Gmail preprocessing pipeline (steps 1-6).
+"""Run the Gmail preprocessing pipeline (steps 1-7).
 
-Transforms raw Gmail data into anonymized SFT training files.
+Transforms raw Gmail data into anonymized SFT and DPO training files.
 
 Usage:
     uv run python -m gmail_preprocessing_pipeline.run_pipeline
@@ -21,6 +21,7 @@ STEPS = [
     (4, "Filter pairs (LLM)"),
     (5, "Anonymize names (LLM)"),
     (6, "Format for SFT"),
+    (7, "Format for DPO"),
 ]
 
 
@@ -43,57 +44,65 @@ def run_pipeline(
     print()
 
     if 1 not in skip:
-        print("=== Step 1/6: Export Gmail threads ===")
+        print("=== Step 1/7: Export Gmail threads ===")
         from .export_gmail import get_service, export_replied_threads
 
         service = get_service()
         export_replied_threads(service)
     else:
-        print("=== Step 1/6: Export Gmail threads [skipped] ===")
+        print("=== Step 1/7: Export Gmail threads [skipped] ===")
 
     if 2 not in skip:
-        print("\n=== Step 2/6: Extract reply pairs ===")
+        print("\n=== Step 2/7: Extract reply pairs ===")
         from .extract_pairs import process_file
 
         process_file(tmp / "new_threads.mbox", tmp / "reply_pairs_raw.jsonl")
     else:
-        print("=== Step 2/6: Extract reply pairs [skipped] ===")
+        print("=== Step 2/7: Extract reply pairs [skipped] ===")
 
     if 3 not in skip:
-        print("\n=== Step 3/6: Clean pairs ===")
+        print("\n=== Step 3/7: Clean pairs ===")
         from .clean_pairs import process_file
 
         process_file(tmp / "reply_pairs_raw.jsonl", tmp / "reply_pairs_clean.jsonl")
     else:
-        print("=== Step 3/6: Clean pairs [skipped] ===")
+        print("=== Step 3/7: Clean pairs [skipped] ===")
 
     if 4 not in skip:
-        print("\n=== Step 4/6: Filter pairs ===")
+        print("\n=== Step 4/7: Filter pairs ===")
         from .filter_pairs import process_file
 
         process_file(
             tmp / "reply_pairs_clean.jsonl", tmp / "reply_pairs_filtered.jsonl"
         )
     else:
-        print("=== Step 4/6: Filter pairs [skipped] ===")
+        print("=== Step 4/7: Filter pairs [skipped] ===")
 
     if 5 not in skip:
-        print("\n=== Step 5/6: Anonymize names ===")
+        print("\n=== Step 5/7: Anonymize names ===")
         from .anonymize_pairs import process_file
 
         process_file(
             tmp / "reply_pairs_filtered.jsonl", tmp / "reply_pairs_anon.jsonl"
         )
     else:
-        print("=== Step 5/6: Anonymize names [skipped] ===")
+        print("=== Step 5/7: Anonymize names [skipped] ===")
 
     if 6 not in skip:
-        print("\n=== Step 6/6: Format for SFT ===")
+        print("\n=== Step 6/7: Format for SFT ===")
         from .format_for_sft import process_file
 
         process_file(tmp / "reply_pairs_anon.jsonl", data)
     else:
-        print("=== Step 6/6: Format for SFT [skipped] ===")
+        print("=== Step 6/7: Format for SFT [skipped] ===")
+
+    if 7 not in skip:
+        print("\n=== Step 7/7: Format for DPO ===")
+        from .format_for_dpo import process_file
+
+        process_file(tmp / "reply_pairs_anon.jsonl", data)
+    else:
+        print("=== Step 7/7: Format for DPO [skipped] ===")
 
     print("\nPipeline complete.")
 
