@@ -2,9 +2,9 @@
 
 # Customain
 
-**Fine-tune OpenAI models to sound like you.**
+**Fine-tune LLMs to sound like you.**
 
-Customain extracts your writing style from real conversations and text content, builds a training dataset, and fine-tunes language models to mimic your tone, voice, and communication patterns. The result is an AI that writes the way *you* would — not generic, not robotic, but authentically yours.
+Customain learns your writing style from your own real text content, and conversations, and fine-tunes (large) language models to mimic your tone, voice, and communication patterns. The result is your custom AI that does not sound generic, but just like *you*.
 
 ## How It Works
 
