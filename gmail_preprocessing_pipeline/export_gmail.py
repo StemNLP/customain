@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import base64
 import email
@@ -12,7 +13,7 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 BASE_DIR = Path(__file__).parent.parent
 CREDS_FILE = str(BASE_DIR / ".secrets" / "credentials.json")
 TOKEN_FILE = str(BASE_DIR / ".secrets" / "token.json")
-MBOX_FILE = str(BASE_DIR / "data" / "_intermediate" / "new_threads.mbox")
+EXPORTS_DIR = BASE_DIR / "data" / "exports"
 
 
 def get_service():
@@ -63,13 +64,16 @@ def iter_replied_thread_ids(service):
     print(f"Found {len(seen)} threads total.")
 
 
-def export_replied_threads(service):
-    mbox = mailbox.mbox(MBOX_FILE)
+def export_replied_threads(service) -> Path:
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    mbox_path = EXPORTS_DIR / f"new_threads_{timestamp}.mbox"
+    mbox = mailbox.mbox(str(mbox_path))
     thread_count = 0
     msg_count = 0
     skipped = 0
 
-    print(f"\nExporting threads to {MBOX_FILE}...")
+    print(f"\nExporting threads to {mbox_path}...")
     for thread_id in iter_replied_thread_ids(service):
         thread = service.users().threads().get(
             userId="me",
@@ -101,8 +105,9 @@ def export_replied_threads(service):
 
     mbox.flush()
     mbox.close()
-    print(f"\nDone. {thread_count} threads, {msg_count} messages -> {MBOX_FILE}")
+    print(f"\nDone. {thread_count} threads, {msg_count} messages -> {mbox_path}")
     print(f"  ({skipped} single-message threads skipped)")
+    return mbox_path
 
 
 def main():
