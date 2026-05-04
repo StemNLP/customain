@@ -27,6 +27,17 @@ Your emails → Extract & clean → Fine-tune → A model that writes like you
 | Notion          | 🔜 Planned   |
 | Google Docs     | 🔜 Planned   |
 
+## Supported Providers
+
+| Provider | Models | SFT | DPO | Status |
+|---|---|---|---|---|
+| **OpenAI** | GPT-4.1, 4.1-mini, 4.1-nano, 4o, 4o-mini | ✅ | ✅ | ✅ Available |
+| **Together AI** | Llama, Mixtral, Qwen + any HF model | ✅ | ✅ | 🔜 Planned |
+<!-- | **Fireworks AI** | Llama, Mixtral + open-source models | ✅ | ✅ | 🔜 Planned |
+| **Google Vertex AI** | Gemini 2.5 Flash/Lite, 2.0 Flash | ✅ | ❌ | 🔜 Planned |
+| **Mistral AI** | Mistral Small 3.1, Medium | ✅ | ❌ | 🔜 Planned |
+| **Cohere** | Command A, R+, R, Aya Expanse | ✅ | ❌ | 🔜 Planned | -->
+
 ## Quick Start
 
 ### Prerequisites
