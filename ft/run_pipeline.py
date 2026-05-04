@@ -20,24 +20,12 @@ from .logging_config import setup_logger
 
 logger = setup_logger(log_level=logging.INFO)
 
-TEST_TRAIN_LIMIT = 50
-TEST_TEST_LIMIT = 25
 POLL_INTERVAL_SECONDS = 300
 
 DATA_FILE_PREFIXES = {
     "supervised": "sft",
     "dpo": "dpo",
 }
-
-
-def _make_subset(src: str, limit: int, suffix: str) -> str:
-    """Write the first `limit` lines of `src` to a sibling file and return its path."""
-    src_path = Path(src)
-    dst_path = src_path.with_name(f"{src_path.stem}{suffix}{src_path.suffix}")
-    lines = src_path.read_text(encoding="utf-8").splitlines()[:limit]
-    dst_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    logger.info(f"Test mode: wrote {len(lines)} lines to {dst_path}")
-    return str(dst_path)
 
 
 def run_pipeline(data_dir: str = "data",
@@ -48,17 +36,19 @@ def run_pipeline(data_dir: str = "data",
 
     Reads training_methods from training_configs.py and auto-resolves data
     files per method (sft_*.jsonl for supervised, dpo_*.jsonl for dpo).
+    With --test-run, uses pre-generated mock files from the preprocessing pipeline.
 
     Args:
         data_dir: Directory containing training/test JSONL files.
         skip_steps: List of step numbers to skip (e.g. [1, 2]).
-        test_run: If True, subset to TEST_TRAIN_LIMIT train and TEST_TEST_LIMIT test examples.
+        test_run: If True, use mock data files produced by the preprocessing pipeline.
     """
     skip = set(skip_steps or [])
     data_path = Path(data_dir)
+    mock_suffix = "_mock" if test_run else ""
 
     if test_run:
-        logger.info(f"=== TEST RUN: {TEST_TRAIN_LIMIT} train, {TEST_TEST_LIMIT} test ===")
+        logger.info("=== TEST RUN: using mock data files ===")
 
     if 1 not in skip:
         logger.info("=== Step 1: Generating configs and launching FT jobs ===")
@@ -68,12 +58,8 @@ def run_pipeline(data_dir: str = "data",
         all_configs = []
         for method in training_methods:
             prefix = DATA_FILE_PREFIXES[method]
-            train_file = str(data_path / f"{prefix}_train.jsonl")
-            test_file = str(data_path / f"{prefix}_test.jsonl")
-
-            if test_run:
-                train_file = _make_subset(train_file, TEST_TRAIN_LIMIT, "_testrun")
-                test_file = _make_subset(test_file, TEST_TEST_LIMIT, "_testrun")
+            train_file = str(data_path / f"{prefix}_train{mock_suffix}.jsonl")
+            test_file = str(data_path / f"{prefix}_test{mock_suffix}.jsonl")
 
             configs = generate_configurations(
                 train_file=train_file,
@@ -113,9 +99,7 @@ def run_pipeline(data_dir: str = "data",
     if 3 not in skip:
         logger.info("=== Step 3: Running FT models on test set ===")
         from .step_3_eval_run_ft_models import eval_run_all_fted_models
-        eval_test_file = str(data_path / "sft_test.jsonl")
-        if test_run:
-            eval_test_file = _make_subset(eval_test_file, TEST_TEST_LIMIT, "_testrun")
+        eval_test_file = str(data_path / f"sft_test{mock_suffix}.jsonl")
         eval_run_all_fted_models(test_file=eval_test_file)
     else:
         logger.info("Skipping step 3")
@@ -138,7 +122,7 @@ def main():
     parser.add_argument("--skip", type=int, nargs="*", default=[],
                         help="Step numbers to skip (e.g. --skip 1 2)")
     parser.add_argument("--test-run", action="store_true",
-                        help=f"Use only {TEST_TRAIN_LIMIT} train and {TEST_TEST_LIMIT} test examples")
+                        help="Use mock data files (small subsets produced by preprocessing pipeline)")
     args = parser.parse_args()
 
     run_pipeline(

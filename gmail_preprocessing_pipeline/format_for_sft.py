@@ -26,6 +26,8 @@ USER_INSTRUCTION = (
 )
 TEST_RATIO = 0.2
 SEED = 42
+MOCK_TRAIN = 10
+MOCK_TEST = 5
 
 
 def format_pair(pair: dict) -> dict:
@@ -65,7 +67,16 @@ def process_file(
     train_path = output_dir / "sft_train.jsonl"
     test_path = output_dir / "sft_test.jsonl"
 
-    for path, data in [(train_path, train_set), (test_path, test_set)]:
+    mock_train_path = output_dir / "sft_train_mock.jsonl"
+    mock_test_path = output_dir / "sft_test_mock.jsonl"
+
+    all_files = [
+        (train_path, train_set),
+        (test_path, test_set),
+        (mock_train_path, train_set[:MOCK_TRAIN]),
+        (mock_test_path, test_set[:MOCK_TEST]),
+    ]
+    for path, data in all_files:
         with path.open("w", encoding="utf-8") as f:
             for item in data:
                 f.write(json.dumps(item, ensure_ascii=False) + "\n")
@@ -73,6 +84,8 @@ def process_file(
     print(f"Total: {len(formatted)} pairs")
     print(f"Train: {len(train_set)} -> {train_path}")
     print(f"Test:  {len(test_set)} -> {test_path}")
+    print(f"Mock train: {min(MOCK_TRAIN, len(train_set))} -> {mock_train_path}")
+    print(f"Mock test:  {min(MOCK_TEST, len(test_set))} -> {mock_test_path}")
 
 
 def main():

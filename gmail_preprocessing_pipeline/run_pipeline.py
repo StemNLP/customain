@@ -104,6 +104,18 @@ def run_pipeline(
     else:
         print("=== Step 7/7: Format for DPO [skipped] ===")
 
+    # Write manifest for all output data files
+    from .manifest import write_manifest
+
+    data_files = [
+        "sft_train.jsonl", "sft_test.jsonl",
+        "sft_train_mock.jsonl", "sft_test_mock.jsonl",
+        "dpo_train.jsonl", "dpo_test.jsonl",
+        "dpo_train_mock.jsonl", "dpo_test_mock.jsonl",
+    ]
+    manifest_path = write_manifest(data, data_files)
+    print(f"\nManifest written to {manifest_path}")
+
     print("\nPipeline complete.")
 
 
