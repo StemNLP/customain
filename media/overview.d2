@@ -1,0 +1,43 @@
+direction: right
+
+source: "Your writing\nemails, docs, messages,\nnotes ...anything" {
+  shape: rectangle
+  style.border-radius: 12
+  style.fill: "#E8F4FD"
+  style.stroke: "#2196F3"
+  style.stroke-width: 2
+  style.font-size: 16
+  style.shadow: true
+}
+
+finetune: "Fine-Tune\non YOUR style" {
+  shape: rectangle
+  style.border-radius: 12
+  style.fill: "#FFF3E0"
+  style.stroke: "#FF9800"
+  style.stroke-width: 2
+  style.font-size: 16
+  style.shadow: true
+}
+
+result: "AI that writes\nand sounds\njust like you." {
+  shape: rectangle
+  style.border-radius: 12
+  style.fill: "#E8F5E9"
+  style.stroke: "#4CAF50"
+  style.stroke-width: 2
+  style.font-size: 16
+  style.shadow: true
+}
+
+source -> finetune: {
+  style.stroke: "#666"
+  style.stroke-width: 2
+  style.animated: true
+}
+
+finetune -> result: {
+  style.stroke: "#666"
+  style.stroke-width: 2
+  style.animated: true
+}

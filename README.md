@@ -1,26 +1,4 @@
-```d2
-direction: right
-
-source: Your writing {
-  shape: rectangle
-  label: |md
-    **Your writing:**
-    emails, docs,
-    messages, notes
-    ...anything
-  |
-}
-
-finetune: Fine-Tune on YOUR style {
-  shape: rectangle
-}
-
-result: AI that writes and sounds just like you. {
-  shape: rectangle
-}
-
-source -> finetune -> result
-```
+![Overview](media/overview.svg)
 
 # Customain
 
