@@ -10,12 +10,12 @@ logger = setup_logger(log_level=logging.INFO)
 
 def generate_configurations(train_file: str,
                           test_file: str,
-                          train_file_oai_id: str,
-                          test_file_oai_id: str,
                           llms: list,
                           batch_sizes: list,
                           learning_rate_multipliers: list,
                           training_method: str = "supervised",
+                          train_file_oai_id: str | None = None,
+                          test_file_oai_id: str | None = None,
                           n_epochs: int = 4):
     """
     Generate all hyperparameter configurations for fine-tuning experiments.
@@ -25,15 +25,18 @@ def generate_configurations(train_file: str,
     lists. An empty list for a dimension means "do not sweep that dimension"
     (OpenAI will use its default for it), not "skip the sweep entirely".
 
+    OAI file IDs are optional at config generation time — run_experiments
+    uploads files after cost confirmation.
+
     Args:
         train_file (str): Local path to the training file.
         test_file (str): Local path to the test file.
-        train_file_oai_id (str): OpenAI file ID for the training file.
-        test_file_oai_id (str): OpenAI file ID for the test file.
         llms (list): List of LLM model names to be used for fine-tuning.
         batch_sizes (list): List of batch sizes to sweep (empty = don't sweep).
         learning_rate_multipliers (list): List of LR multipliers to sweep (empty = don't sweep).
         training_method (str): "supervised" or "dpo".
+        train_file_oai_id (str | None): OpenAI file ID for the training file.
+        test_file_oai_id (str | None): OpenAI file ID for the test file.
         n_epochs (int): Number of epochs for the hyperparameter-sweep configs.
 
     Returns:
@@ -115,11 +118,12 @@ def run_experiments(training_configurations):
     logger.warning("Estimated fine-tuning cost:")
     for est in estimates:
         hp = est["hyperparameters"] or "defaults"
+        method_label = est.get("training_method", "supervised")
         if est["cost_usd"] is None:
-            logger.warning(f"  - {est['model']} ({hp}): price unknown for this model "
+            logger.warning(f"  - {est['model']} [{method_label}] ({hp}): price unknown for this model "
                            f"({est['tokens']} tokens × {est['n_epochs']} epochs)")
         else:
-            logger.warning(f"  - {est['model']} ({hp}): ${est['cost_usd']:.2f} "
+            logger.warning(f"  - {est['model']} [{method_label}] ({hp}): ${est['cost_usd']:.2f} "
                            f"({est['tokens']} tokens × {est['n_epochs']} epochs × ${est['price_per_1M']}/1M)")
     logger.warning(f"Estimated total: ${total_cost:.2f}")
 
@@ -128,6 +132,18 @@ def run_experiments(training_configurations):
         logger.info("Aborting experiment run.")
         return None
     logger.info("Proceeding with experiments...")
+
+    # Upload files to OpenAI (after cost confirmation)
+    from .finetuning import upload_file_for_ft
+    uploaded = {}
+    for config in training_configurations:
+        for key in ("training_file", "test_file"):
+            local_path = config.get(key)
+            if local_path and local_path not in uploaded:
+                uploaded[local_path] = upload_file_for_ft(local_path)
+            if local_path:
+                config[f"{key}_oai_id"] = uploaded[local_path]
+    logger.info(f"Uploaded {len(uploaded)} file(s) to OpenAI.")
 
     wandb.init(project="customain", job_type="fine-tuning")
 

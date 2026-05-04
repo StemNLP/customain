@@ -24,7 +24,11 @@ DEFAULT_N_EPOCHS = 3
 
 
 def count_tokens_in_file(train_file: str, model: str = "gpt-4o") -> int:
-    """Count tokens across all message contents in a training JSONL file."""
+    """Count tokens across all message contents in a training JSONL file.
+
+    Handles both SFT format ({"messages": [...]}) and DPO format
+    ({"input": {"messages": [...]}, "preferred_output": [...], "non_preferred_output": [...]}).
+    """
     try:
         enc = tiktoken.encoding_for_model(model)
     except KeyError:
@@ -37,8 +41,17 @@ def count_tokens_in_file(train_file: str, model: str = "gpt-4o") -> int:
             if not line:
                 continue
             data = json.loads(line)
+            # SFT format
             for msg in data.get("messages", []):
                 total += len(enc.encode(msg.get("content", "")))
+            # DPO format
+            if "input" in data:
+                for msg in data["input"].get("messages", []):
+                    total += len(enc.encode(msg.get("content", "")))
+                for msg in data.get("preferred_output", []):
+                    total += len(enc.encode(msg.get("content", "")))
+                for msg in data.get("non_preferred_output", []):
+                    total += len(enc.encode(msg.get("content", "")))
     return total
 
 
@@ -70,6 +83,7 @@ def estimate_configs_cost(configs: list) -> tuple[list[dict], float]:
         n_epochs = (cfg.get("hyperparameters") or {}).get("n_epochs", DEFAULT_N_EPOCHS)
         est = estimate_cost(cfg["training_file"], cfg["model"], n_epochs=n_epochs)
         est["model"] = cfg["model"]
+        est["training_method"] = cfg.get("training_method", "supervised")
         est["hyperparameters"] = cfg.get("hyperparameters")
         estimates.append(est)
         if est["cost_usd"] is not None:

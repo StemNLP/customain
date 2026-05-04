@@ -64,7 +64,6 @@ def run_pipeline(data_dir: str = "data",
         logger.info("=== Step 1: Generating configs and launching FT jobs ===")
         from .step_1_run_ft_jobs import generate_configurations, run_experiments
         from .training_configs import training_methods, llms, batch_sizes, learning_rate_multipliers
-        from .finetuning import upload_file_for_ft
 
         all_configs = []
         for method in training_methods:
@@ -76,14 +75,9 @@ def run_pipeline(data_dir: str = "data",
                 train_file = _make_subset(train_file, TEST_TRAIN_LIMIT, "_testrun")
                 test_file = _make_subset(test_file, TEST_TEST_LIMIT, "_testrun")
 
-            train_oai_id = upload_file_for_ft(train_file)
-            test_oai_id = upload_file_for_ft(test_file)
-
             configs = generate_configurations(
                 train_file=train_file,
                 test_file=test_file,
-                train_file_oai_id=train_oai_id,
-                test_file_oai_id=test_oai_id,
                 llms=llms,
                 batch_sizes=batch_sizes,
                 learning_rate_multipliers=learning_rate_multipliers,
