@@ -166,46 +166,6 @@ uv run python -m classifiers.authorship.train \
 # The authorship_classifier evaluator auto-registers and uses the trained checkpoint
 ```
 
-## Project Structure
-
-```
-customain/
-├── gmail_preprocessing_pipeline/
-│   ├── run_pipeline.py          # End-to-end preprocessing orchestrator
-│   ├── export_gmail.py          # Export replied threads from Gmail API
-│   ├── extract_pairs.py         # mbox → raw email-reply pairs (JSONL)
-│   ├── clean_pairs.py           # LLM-based body cleaning
-│   ├── filter_pairs.py          # LLM-based quality filtering
-│   ├── anonymize_pairs.py       # LLM-based name/PII anonymization
-│   └── format_for_sft.py        # Format into OpenAI SFT JSONL + train/test split
-├── ft/
-│   ├── run_pipeline.py          # End-to-end fine-tuning pipeline
-│   ├── finetuning.py            # OpenAI fine-tuning API wrapper
-│   ├── training_configs.py      # Model, hyperparameter, and evaluator configs
-│   ├── step_1_run_ft_jobs.py    # Launch FT jobs
-│   ├── step_2_update_experiments.py  # Poll job status
-│   ├── step_3_eval_run_ft_models.py  # Run FT models on test set
-│   ├── step_4_run_evaluation.py      # Run evaluators
-│   └── evaluation/
-│       ├── core.py              # Evaluator runner
-│       ├── registry.py          # Auto-discovery registry
-│       └── evaluators/          # Drop-in evaluator modules
-├── classifiers/
-│   └── authorship/
-│       ├── prepare_data.py      # Extract classifier data from SFT files
-│       ├── dataset.py           # Char-level tokenization and Dataset
-│       ├── model.py             # TextCNN architecture
-│       ├── train.py             # Training loop with W&B logging
-│       └── predict.py           # Inference utility
-├── .secrets/                    # API keys and OAuth tokens (gitignored)
-├── data/                        # All data artifacts (gitignored)
-│   ├── _intermediate/           # Pipeline artifacts (mbox, raw/clean/filtered pairs)
-│   ├── sft_train.jsonl          # Final training data
-│   ├── sft_test.jsonl           # Final test data
-│   └── classifiers/authorship/  # Classifier training data
-└── pyproject.toml
-```
-
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPLv3)](license.txt).
