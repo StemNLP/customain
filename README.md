@@ -29,14 +29,14 @@ Your emails → Extract & clean → Fine-tune → A model that writes like you
 
 ## Supported Providers
 
-| Provider | Models | Status |
-|---|---|---|
-| **OpenAI** | GPT-4.1, 4.1-mini, 4.1-nano, 4o, 4o-mini | ✅ Available |
-| **Together AI** | Llama, Mixtral, Qwen + any HF model | 🔜 Planned |
-<!-- | **Fireworks AI** | Llama, Mixtral + open-source models | 🔜 Planned |
-| **Google Vertex AI** | Gemini 2.5 Flash/Lite, 2.0 Flash | 🔜 Planned |
-| **Mistral AI** | Mistral Small 3.1, Medium | 🔜 Planned |
-| **Cohere** | Command A, R+, R, Aya Expanse | 🔜 Planned | -->
+| Provider | Models | Methods | Status |
+|---|---|---|---|
+| **OpenAI** | GPT-4.1, 4.1-mini, 4.1-nano, 4o, 4o-mini | SFT, DPO | ✅ Available |
+| **Together AI** | Llama, Mixtral, Qwen + any HF model | -- | 🔜 Planned |
+<!-- | **Fireworks AI** | Llama, Mixtral + open-source models | -- | 🔜 Planned |
+| **Google Vertex AI** | Gemini 2.5 Flash/Lite, 2.0 Flash | -- | 🔜 Planned |
+| **Mistral AI** | Mistral Small 3.1, Medium | -- | 🔜 Planned |
+| **Cohere** | Command A, R+, R, Aya Expanse | -- | 🔜 Planned | -->
 
 ## Quick Start
 
