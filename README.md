@@ -134,7 +134,7 @@ The pipeline will:
 
 ## Evaluation
 
-Customain includes a pluggable evaluation framework. Evaluators are auto-discovered — just drop a new one into `ft/evaluation/evaluators/`.
+Customain includes a pluggable evaluation framework. Evaluators are auto-discovered. You can just drop a new one into `ft/evaluation/evaluators/`. It can be ml-based, statistical, or any other form you prefer. Take a look at the existing ml-based and metric/statistical evaluators already implemented:
 
 | Evaluator                | What it measures                           |
 | ------------------------ | ------------------------------------------ |
@@ -152,7 +152,7 @@ skip_evaluators = ["bleu", "meteor"]  # Only run tone_judge and semantic_similar
 
 ### Authorship Classifier
 
-A character-level CNN trained to distinguish the author's writing from other people's emails. Unlike LLM-as-judge evaluators, this learns style patterns directly from data.
+A character-level CNN text classifier trained to distinguish the author's writing from other people's writings. Unlike LLM-as-judge evaluators, this learns style patterns directly from data, hence it does not suffer from the LLM-as-a-judge performance issues. Its current best performance is `91%` precision.
 
 ```bash
 # Prepare training data from existing SFT data
