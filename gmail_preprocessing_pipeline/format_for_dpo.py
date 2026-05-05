@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """Format reply pairs into OpenAI DPO fine-tuning format and split into train/test.
 
-Reads anonymized reply pairs JSONL, generates non-preferred outputs using a
+Reads processed reply pairs JSONL, generates non-preferred outputs using a
 cheap baseline model, and produces:
-  - data/dpo_train.jsonl  (training split)
-  - data/dpo_test.jsonl   (test split)
+  - <output_dir>/train.jsonl  (training split)
+  - <output_dir>/test.jsonl   (test split)
 
 Each line follows the OpenAI DPO fine-tuning format:
   {"input": {"messages": [...]},
@@ -95,11 +95,13 @@ def process_file(
     test_set = formatted[:split_idx]
     train_set = formatted[split_idx:]
 
-    train_path = output_dir / "dpo_train.jsonl"
-    test_path = output_dir / "dpo_test.jsonl"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    mock_train_path = output_dir / "dpo_train_mock.jsonl"
-    mock_test_path = output_dir / "dpo_test_mock.jsonl"
+    train_path = output_dir / "train.jsonl"
+    test_path = output_dir / "test.jsonl"
+
+    mock_train_path = output_dir / "train_mock.jsonl"
+    mock_test_path = output_dir / "test_mock.jsonl"
 
     all_files = [
         (train_path, train_set),
@@ -124,8 +126,8 @@ def main():
     load_secrets()
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=Path("data/_intermediate/reply_pairs_anon.jsonl"))
-    parser.add_argument("--output-dir", type=Path, default=Path("data"))
+    parser.add_argument("--input", type=Path, default=Path("data/_intermediate/reply_pairs_processed.jsonl"))
+    parser.add_argument("--output-dir", type=Path, default=Path("data/dpo"))
     parser.add_argument("--test-ratio", type=float, default=TEST_RATIO)
     parser.add_argument("--seed", type=int, default=SEED)
     args = parser.parse_args()

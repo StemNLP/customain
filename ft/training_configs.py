@@ -34,7 +34,8 @@ learning_rate_multipliers = [
 include_default_hyperparam_config = True
 
 # Training methods to run: "supervised" (SFT) and/or "dpo" (Direct Preference Optimization).
-# The FT pipeline auto-resolves data files: sft_train.jsonl for supervised, dpo_train.jsonl for dpo.
+# The FT pipeline auto-resolves data files from the selected dataset version, e.g.
+# <dataset>/sft/train.jsonl for supervised and <dataset>/dpo/train.jsonl for dpo.
 training_methods = ["supervised", "dpo"]
 
 # Evaluator names to skip during evaluation (step 4).

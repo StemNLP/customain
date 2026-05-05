@@ -1,8 +1,9 @@
-from datetime import datetime
-from pathlib import Path
+import argparse
 import base64
 import email
 import mailbox
+from datetime import datetime
+from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -34,27 +35,49 @@ def get_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def iter_replied_thread_ids(service):
+def _build_query(base_query: str | None = None, newer_than_days: int | None = None) -> str:
+    parts = ["from:me in:sent"]
+    if newer_than_days is not None:
+        parts.append(f"newer_than:{newer_than_days}d")
+    if base_query:
+        parts.append(base_query)
+    return " ".join(parts)
+
+
+def iter_replied_thread_ids(
+    service,
+    base_query: str | None = None,
+    newer_than_days: int | None = None,
+    max_threads: int | None = None,
+):
     """Find thread IDs where the user sent a reply."""
     page_token = None
     seen = set()
     page = 0
+    query = _build_query(base_query, newer_than_days)
 
     print("Discovering threads with replies...")
+    print(f"  Query: {query}")
     while True:
         page += 1
         response = service.users().messages().list(
             userId="me",
-            q="from:me in:sent",
+            q=query,
             maxResults=500,
             pageToken=page_token,
         ).execute()
 
         for msg in response.get("messages", []):
             tid = msg["threadId"]
-            if tid not in seen:
-                seen.add(tid)
-                yield tid
+            if tid in seen:
+                continue
+
+            seen.add(tid)
+            yield tid
+            if max_threads is not None and len(seen) >= max_threads:
+                print(f"Reached max thread limit ({max_threads}).")
+                print(f"Found {len(seen)} threads total.")
+                return
 
         print(f"  page {page}: {len(seen)} unique threads so far")
         page_token = response.get("nextPageToken")
@@ -64,7 +87,12 @@ def iter_replied_thread_ids(service):
     print(f"Found {len(seen)} threads total.")
 
 
-def export_replied_threads(service) -> Path:
+def export_replied_threads(
+    service,
+    gmail_query: str | None = None,
+    newer_than_days: int | None = None,
+    max_threads: int | None = None,
+) -> Path:
     EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     mbox_path = EXPORTS_DIR / f"new_threads_{timestamp}.mbox"
@@ -74,14 +102,18 @@ def export_replied_threads(service) -> Path:
     skipped = 0
 
     print(f"\nExporting threads to {mbox_path}...")
-    for thread_id in iter_replied_thread_ids(service):
+    for thread_id in iter_replied_thread_ids(
+        service,
+        base_query=gmail_query,
+        newer_than_days=newer_than_days,
+        max_threads=max_threads,
+    ):
         thread = service.users().threads().get(
             userId="me",
             id=thread_id,
             format="full",
         ).execute()
 
-        # Only keep threads with at least 2 messages (a received + a reply)
         messages = thread.get("messages", [])
         if len(messages) < 2:
             skipped += 1
@@ -110,9 +142,20 @@ def export_replied_threads(service) -> Path:
     return mbox_path
 
 
-def main():
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Export replied Gmail threads to an mbox file")
+    parser.add_argument("--gmail-query", type=str, default=None)
+    parser.add_argument("--newer-than-days", type=int, default=None)
+    parser.add_argument("--max-threads", type=int, default=None)
+    args = parser.parse_args()
+
     service = get_service()
-    export_replied_threads(service)
+    export_replied_threads(
+        service,
+        gmail_query=args.gmail_query,
+        newer_than_days=args.newer_than_days,
+        max_threads=args.max_threads,
+    )
 
 
 if __name__ == "__main__":

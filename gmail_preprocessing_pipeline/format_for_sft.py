@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Format reply pairs into OpenAI SFT fine-tuning format and split into train/test.
 
-Reads filtered reply pairs JSONL and produces:
-  - data/sft_train.jsonl  (training split)
-  - data/sft_test.jsonl   (test split)
+Reads processed reply pairs JSONL and produces:
+  - <output_dir>/train.jsonl  (training split)
+  - <output_dir>/test.jsonl   (test split)
 
 Each line follows the OpenAI chat fine-tuning format:
   {"messages": [{"role": "system", "content": "..."},
@@ -64,11 +64,13 @@ def process_file(
     test_set = formatted[:split_idx]
     train_set = formatted[split_idx:]
 
-    train_path = output_dir / "sft_train.jsonl"
-    test_path = output_dir / "sft_test.jsonl"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    mock_train_path = output_dir / "sft_train_mock.jsonl"
-    mock_test_path = output_dir / "sft_test_mock.jsonl"
+    train_path = output_dir / "train.jsonl"
+    test_path = output_dir / "test.jsonl"
+
+    mock_train_path = output_dir / "train_mock.jsonl"
+    mock_test_path = output_dir / "test_mock.jsonl"
 
     all_files = [
         (train_path, train_set),
@@ -90,8 +92,8 @@ def process_file(
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=Path("data/_intermediate/reply_pairs_anon.jsonl"))
-    parser.add_argument("--output-dir", type=Path, default=Path("data"))
+    parser.add_argument("--input", type=Path, default=Path("data/_intermediate/reply_pairs_processed.jsonl"))
+    parser.add_argument("--output-dir", type=Path, default=Path("data/sft"))
     parser.add_argument("--test-ratio", type=float, default=TEST_RATIO)
     parser.add_argument("--seed", type=int, default=SEED)
     args = parser.parse_args()

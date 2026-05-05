@@ -2,8 +2,8 @@
 """Run the fine-tuning pipeline (steps 1-4).
 
 Reads training_methods from training_configs.py and auto-resolves data files:
-  - supervised -> data/sft_train.jsonl, data/sft_test.jsonl
-  - dpo        -> data/dpo_train.jsonl, data/dpo_test.jsonl
+    - supervised -> <dataset>/sft/train.jsonl, <dataset>/sft/test.jsonl
+    - dpo        -> <dataset>/dpo/train.jsonl, <dataset>/dpo/test.jsonl
 
 Usage:
     uv run python -m ft.run_pipeline
@@ -16,6 +16,9 @@ import json
 import time
 from pathlib import Path
 import logging
+
+from gmail_preprocessing_pipeline.datasets import find_latest_dataset_dir
+
 from .logging_config import setup_logger
 
 logger = setup_logger(log_level=logging.INFO)
@@ -39,12 +42,13 @@ def run_pipeline(data_dir: str = "data",
     With --test-run, uses pre-generated mock files from the preprocessing pipeline.
 
     Args:
-        data_dir: Directory containing training/test JSONL files.
+        data_dir: Dataset version directory or data root. When pointed at the
+            data root, the latest dataset version under data/gmail is used.
         skip_steps: List of step numbers to skip (e.g. [1, 2]).
         test_run: If True, use mock data files produced by the preprocessing pipeline.
     """
     skip = set(skip_steps or [])
-    data_path = Path(data_dir)
+    data_path = _resolve_data_dir(Path(data_dir))
     mock_suffix = "_mock" if test_run else ""
 
     if test_run:
@@ -58,8 +62,8 @@ def run_pipeline(data_dir: str = "data",
         all_configs = []
         for method in training_methods:
             prefix = DATA_FILE_PREFIXES[method]
-            train_file = str(data_path / f"{prefix}_train{mock_suffix}.jsonl")
-            test_file = str(data_path / f"{prefix}_test{mock_suffix}.jsonl")
+            train_file = str(data_path / prefix / f"train{mock_suffix}.jsonl")
+            test_file = str(data_path / prefix / f"test{mock_suffix}.jsonl")
 
             configs = generate_configurations(
                 train_file=train_file,
@@ -99,7 +103,7 @@ def run_pipeline(data_dir: str = "data",
     if 3 not in skip:
         logger.info("=== Step 3: Running FT models on test set ===")
         from .step_3_eval_run_ft_models import eval_run_all_fted_models
-        eval_test_file = str(data_path / f"sft_test{mock_suffix}.jsonl")
+        eval_test_file = str(data_path / "sft" / f"test{mock_suffix}.jsonl")
         eval_run_all_fted_models(test_file=eval_test_file)
     else:
         logger.info("Skipping step 3")
@@ -115,10 +119,16 @@ def run_pipeline(data_dir: str = "data",
     logger.info("Pipeline complete.")
 
 
+def _resolve_data_dir(data_path: Path) -> Path:
+    if (data_path / "sft").exists() or (data_path / "dpo").exists():
+        return data_path
+    return find_latest_dataset_dir(data_path)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=str, default="data",
-                        help="Directory containing training/test JSONL files (default: data)")
+                        help="Dataset directory or data root (default: latest under data/gmail)")
     parser.add_argument("--skip", type=int, nargs="*", default=[],
                         help="Step numbers to skip (e.g. --skip 1 2)")
     parser.add_argument("--test-run", action="store_true",
