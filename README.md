@@ -1,6 +1,6 @@
-![Overview](media/overview.svg)
-
 # Customain
+
+![Overview](media/overview.svg)
 
 **Fine-tune LLMs to sound like you.**
 
@@ -8,7 +8,7 @@ Customain learns your writing style from your own real text content, and convers
 
 ## How It Works
 
-```
+```text
 Your emails → Extract & clean → Fine-tune → A model that writes like you
 ```
 
@@ -30,7 +30,7 @@ Your emails → Extract & clean → Fine-tune → A model that writes like you
 ## Supported Providers
 
 | Provider | Models | Methods | Status |
-|---|---|---|---|
+| -------- | ------ | ------- | ------ |
 | **OpenAI** | GPT-4.1, 4.1-mini, 4.1-nano, 4o, 4o-mini | SFT, DPO | ✅ Available |
 | **Together AI** | Llama, Mixtral, Qwen + any HF model | -- | 🔜 Planned |
 <!-- | **Fireworks AI** | Llama, Mixtral + open-source models | -- | 🔜 Planned |
@@ -76,26 +76,66 @@ Run the full Gmail preprocessing pipeline:
 uv run python -m gmail_preprocessing_pipeline.run_pipeline
 ```
 
+Each run now creates a versioned dataset under `data/gmail/<timestamp>/`, where the
+timestamp is taken from the exported mbox filename. Inside each version you get
+separate folders per dataset type, for example:
+
+```text
+data/gmail/20260505_101530/
+  _intermediate/
+  sft/
+    train.jsonl
+    test.jsonl
+    train_mock.jsonl
+    test_mock.jsonl
+  dpo/
+    train.jsonl
+    test.jsonl
+    train_mock.jsonl
+    test_mock.jsonl
+  authorship/
+    train.jsonl
+    val.jsonl
+  manifest.json
+```
+
+Build only the dataset types you need:
+
+```bash
+uv run python -m gmail_preprocessing_pipeline.run_pipeline --targets sft
+uv run python -m gmail_preprocessing_pipeline.run_pipeline --targets sft authorship
+```
+
+Limit how much mail is exported:
+
+```bash
+# Only recent mail
+uv run python -m gmail_preprocessing_pipeline.run_pipeline --newer-than-days 30
+
+# Cap the export size
+uv run python -m gmail_preprocessing_pipeline.run_pipeline --max-threads 250
+
+# Add an extra Gmail query filter
+uv run python -m gmail_preprocessing_pipeline.run_pipeline \
+  --gmail-query "label:important -category:promotions"
+```
+
 Or skip steps you've already completed:
 
 ```bash
 # Already exported Gmail — start from extract
 uv run python -m gmail_preprocessing_pipeline.run_pipeline --start-from 2
 
-# Re-run just anonymize + format
-uv run python -m gmail_preprocessing_pipeline.run_pipeline --start-from 5
+# Re-run dataset building from existing processed pairs
+uv run python -m gmail_preprocessing_pipeline.run_pipeline --start-from 4 --targets sft dpo
 ```
 
-The pipeline runs 6 steps:
+The pipeline runs 4 steps:
 
 1. **Export** Gmail threads to mbox
 2. **Extract** email-reply pairs
-3. **Clean** signatures, quotes, links (LLM)
-4. **Filter** low-quality pairs (LLM)
-5. **Anonymize** person names → `[NAME]` (LLM)
-6. **Format** into SFT train/test split
-email processing pipeline
-Output: `data/sft_train.jsonl` and `data/sft_test.jsonl`
+3. **Transform** pairs in one LLM pass: clean + filter + anonymize
+4. **Build** the selected dataset folders (`sft`, `dpo`, `authorship`)
 
 ### Step 2 — Fine-Tune & Evaluate
 
@@ -103,16 +143,16 @@ Configure which models and hyperparameters to try in `ft/training_configs.py`, t
 
 ```bash
 uv run python -m ft.run_pipeline \
-  --train-file data/sft_train.jsonl \
-  --test-file data/sft_test.jsonl
+  --data-dir data
 ```
+
+By default this uses the latest dataset version under `data/gmail/`.
 
 Or run a quick test with a small subset first:
 
 ```bash
 uv run python -m ft.run_pipeline \
-  --train-file data/sft_train.jsonl \
-  --test-file data/sft_test.jsonl \
+  --data-dir data \
   --test-run
 ```
 
@@ -121,12 +161,12 @@ You can also skip steps you've already completed:
 ```bash
 # Skip data upload and job launch, just evaluate
 uv run python -m ft.run_pipeline \
-  --train-file data/sft_train.jsonl \
-  --test-file data/sft_test.jsonl \
+  --data-dir data \
   --skip 1 2
 ```
 
 The pipeline will:
+
 1. Upload data and launch fine-tuning jobs across your configured model/hyperparameter combinations
 2. Poll until all jobs complete
 3. Run each fine-tuned model on the test set
@@ -155,13 +195,13 @@ skip_evaluators = ["bleu", "meteor"]  # Only run tone_judge and semantic_similar
 A character-level CNN text classifier trained to distinguish the author's writing from other people's writings. Unlike LLM-as-judge evaluators, this learns style patterns directly from data, hence it does not suffer from the LLM-as-a-judge performance issues. Its current best performance is `91%` precision.
 
 ```bash
-# Prepare training data from existing SFT data
+# Prepare training data from the latest versioned SFT dataset
 uv run python -m classifiers.authorship.prepare_data
 
 # Train (logs to W&B under customain-classifiers)
 uv run python -m classifiers.authorship.train \
-  --train-data data/classifiers/authorship/train.jsonl \
-  --val-data data/classifiers/authorship/val.jsonl
+  --train-data data/gmail/<timestamp>/authorship/train.jsonl \
+  --val-data data/gmail/<timestamp>/authorship/val.jsonl
 
 # The authorship_classifier evaluator auto-registers and uses the trained checkpoint
 ```

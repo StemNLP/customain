@@ -10,6 +10,8 @@ import random
 import re
 from pathlib import Path
 
+from gmail_preprocessing_pipeline.datasets import find_latest_dataset_dir
+
 
 def extract_email_body(user_content: str) -> str | None:
     match = re.search(r"^Subject:[^\n]*\n\n", user_content, re.MULTILINE)
@@ -35,52 +37,106 @@ def extract_from_sft(sft_path: str) -> tuple[list[str], list[str]]:
     return positives, negatives
 
 
-def main() -> None:
-    args = _parse_args()
-    random.seed(args.seed)
+def extract_from_pairs(pairs_path: str) -> tuple[list[str], list[str]]:
+    positives: list[str] = []
+    negatives: list[str] = []
+    with open(pairs_path) as f:
+        for line in f:
+            record = json.loads(line)
+            reply = (record.get("reply_body") or "").strip()
+            received = (record.get("received_body") or "").strip()
+            if reply:
+                positives.append(reply)
+            if received:
+                negatives.append(received)
+    return positives, negatives
 
-    all_positives: list[str] = []
-    all_negatives: list[str] = []
-    for sft_file in args.sft_files:
-        pos, neg = extract_from_sft(sft_file)
-        all_positives.extend(pos)
-        all_negatives.extend(neg)
 
-    samples = [{"text": t, "label": 1} for t in all_positives] + [
-        {"text": t, "label": 0} for t in all_negatives
+def write_dataset(
+    positives: list[str],
+    negatives: list[str],
+    output_dir: str,
+    val_ratio: float,
+    seed: int,
+) -> None:
+    random.seed(seed)
+
+    samples = [{"text": t, "label": 1} for t in positives] + [
+        {"text": t, "label": 0} for t in negatives
     ]
     random.shuffle(samples)
 
-    split_idx = int(len(samples) * (1 - args.val_ratio))
+    split_idx = int(len(samples) * (1 - val_ratio))
     train_samples = samples[:split_idx]
     val_samples = samples[split_idx:]
 
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
 
     for name, data in [("train.jsonl", train_samples), ("val.jsonl", val_samples)]:
-        with open(output_dir / name, "w") as f:
+        with open(output_path / name, "w") as f:
             for sample in data:
                 f.write(json.dumps(sample) + "\n")
 
-    pos_count = len(all_positives)
-    neg_count = len(all_negatives)
-    print(f"Extracted {pos_count} positive, {neg_count} negative samples")
+    print(f"Extracted {len(positives)} positive, {len(negatives)} negative samples")
     print(f"Train: {len(train_samples)}, Val: {len(val_samples)}")
-    print(f"Saved to {output_dir}")
+    print(f"Saved to {output_path}")
+
+
+def main() -> None:
+    args = _parse_args()
+
+    all_positives: list[str] = []
+    all_negatives: list[str] = []
+    if args.pairs_files:
+        for pair_file in args.pairs_files:
+            pos, neg = extract_from_pairs(pair_file)
+            all_positives.extend(pos)
+            all_negatives.extend(neg)
+    else:
+        sft_files = args.sft_files or _default_sft_files(args.data_dir)
+        for sft_file in sft_files:
+            pos, neg = extract_from_sft(sft_file)
+            all_positives.extend(pos)
+            all_negatives.extend(neg)
+
+    output_dir = args.output_dir or str(_default_output_dir(args.data_dir))
+    write_dataset(
+        all_positives,
+        all_negatives,
+        output_dir,
+        args.val_ratio,
+        args.seed,
+    )
+
+
+def _default_sft_files(data_dir: str) -> list[str]:
+    dataset_dir = find_latest_dataset_dir(Path(data_dir))
+    return [str(dataset_dir / "sft" / "train.jsonl"), str(dataset_dir / "sft" / "test.jsonl")]
+
+
+def _default_output_dir(data_dir: str) -> Path:
+    dataset_dir = find_latest_dataset_dir(Path(data_dir))
+    return dataset_dir / "authorship"
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Prepare authorship classifier data from SFT files"
     )
+    parser.add_argument("--data-dir", type=str, default="data")
     parser.add_argument(
         "--sft-files",
         nargs="+",
-        default=["data/sft_train.jsonl", "data/sft_test.jsonl"],
+        default=None,
     )
     parser.add_argument(
-        "--output-dir", type=str, default="data/classifiers/authorship"
+        "--pairs-files",
+        nargs="+",
+        default=None,
+    )
+    parser.add_argument(
+        "--output-dir", type=str, default=None
     )
     parser.add_argument("--val-ratio", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
