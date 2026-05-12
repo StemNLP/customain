@@ -31,7 +31,7 @@ Your emails → Extract & clean → Fine-tune → A model that writes like you
 
 | Provider | Models | Methods | Status |
 | -------- | ------ | ------- | ------ |
-| **OpenAI** | GPT-4.1, 4.1-mini, 4.1-nano, 4o, 4o-mini | SFT, DPO | ✅ Available |
+| **OpenAI** | GPT-4.1, 4.1-mini, 4.1-nano| SFT, DPO | ✅ Available |
 | **Together AI** | Llama, Mixtral, Qwen + any HF model | -- | 🔜 Planned |
 <!-- | **Fireworks AI** | Llama, Mixtral + open-source models | -- | 🔜 Planned |
 | **Google Vertex AI** | Gemini 2.5 Flash/Lite, 2.0 Flash | -- | 🔜 Planned |
