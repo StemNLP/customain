@@ -194,8 +194,12 @@ skip_evaluators = ["bleu", "meteor"]  # Only run tone_judge and semantic_similar
 
 A character-level CNN text classifier trained to distinguish the author's writing from other people's writings. Unlike LLM-as-judge evaluators, this learns style patterns directly from data, hence it does not suffer from the LLM-as-a-judge performance issues. Its current best performance is `91%` precision.
 
+> **Note:** The preprocessing pipeline already builds the authorship dataset when `authorship` is included in `--targets` (it is by default). You only need to run `prepare_data` standalone if you want to use custom `--sft-files` or `--pairs-files` outside the pipeline.
+
+<!-- TODO: remove the standalone prepare_data command below once the pipeline fully covers all authorship data-prep options -->
+
 ```bash
-# Prepare training data from the latest versioned SFT dataset
+# Prepare training data standalone (only needed for custom input files)
 uv run python -m classifiers.authorship.prepare_data
 
 # Train (logs to W&B under customain-classifiers)

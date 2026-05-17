@@ -7,9 +7,10 @@ class TextCNN(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        embed_dim: int = 32,
+        embed_dim: int = 64,
         num_filters: int = 64,
         kernel_sizes: list[int] | None = None,
+        stride: int = 2,
         dropout: float = 0.3,
     ):
         super().__init__()
@@ -17,7 +18,7 @@ class TextCNN(nn.Module):
             kernel_sizes = [3, 5, 7]
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         self.convs = nn.ModuleList(
-            [nn.Conv1d(embed_dim, num_filters, k) for k in kernel_sizes]
+            [nn.Conv1d(embed_dim, num_filters, k, stride=stride) for k in kernel_sizes]
         )
         self.dropout = nn.Dropout(dropout)
         self.fc1 = nn.Linear(num_filters * len(kernel_sizes), 64)
