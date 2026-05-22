@@ -1,6 +1,8 @@
 import json
-from openai import OpenAI
 from pathlib import Path
+
+from openai import OpenAI
+
 from .base import BaseEvaluator
 
 SECRETS_FILE = Path(__file__).parents[3] / ".secrets" / "api_keps.json"
@@ -13,46 +15,45 @@ def _load_client() -> OpenAI:
             credentials = json.load(f)
     return OpenAI(api_key=credentials.get("openai_api_key"))
 
-JUDGE_SYSTEM_PROMPT = """You are an expert evaluator of writing style. You will be given an expected reference response and a generated response. Rate how closely the generated response matches the register and style of the expected response on a scale from 0.0 to 1.0.
+
+JUDGE_SYSTEM_PROMPT = """You are an expert evaluator for fine-tuning experiments. You will be given a task prompt, an optional reference answer, and a model-generated answer.
+
+Score the generated answer from 0.0 to 1.0 for overall task quality.
 
 Consider:
-- Formality level (casual, professional, formal)
-- Warmth and politeness
-- Sentence structure and length patterns
-- Terminology and phrasing patterns
-- Overall voice
+- Correctness and factual consistency with the prompt
+- Completeness and usefulness
+- Instruction following
+- Clarity and concision
+- Whether the generated answer avoids unsupported claims
 
-Ignore factual content, correctness, or completeness. Focus only on style.
-
-Score guidelines:
-- 1.0: Tone and style are virtually identical
-- 0.7-0.9: Very similar tone with minor differences
-- 0.4-0.6: Noticeably different tone but in the same general register
-- 0.1-0.3: Very different tone (e.g. casual vs formal)
-- 0.0: Completely mismatched tone
+Use the reference answer only as guidance, not as a required exact match. Do not reward wording similarity by itself.
 
 Respond with ONLY a JSON object in this exact format:
 {"score": <float between 0.0 and 1.0>, "reasoning": "<brief explanation>"}"""
 
-JUDGE_USER_PROMPT = """Expected response:
+JUDGE_USER_PROMPT = """Prompt:
+{prompt}
+
+Reference answer:
 {expected}
 
-Generated response:
+Generated answer:
 {generated}"""
 
 
-class ToneJudgeEvaluator(BaseEvaluator):
+class TaskJudgeEvaluator(BaseEvaluator):
     def __init__(self, model: str = "gpt-4o-mini"):
         self.model = model
         self._client = None
 
     def name(self) -> str:
-        return "tone_judge"
+        return "task_judge"
 
     def required_inputs(self) -> list:
-        return ["expected", "generated"]
+        return ["prompt", "expected", "generated"]
 
-    def run(self, expected: str, generated: str) -> float:
+    def run(self, prompt: str, expected: str | None, generated: str) -> float:
         if self._client is None:
             self._client = _load_client()
 
@@ -62,7 +63,9 @@ class ToneJudgeEvaluator(BaseEvaluator):
             messages=[
                 {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
                 {"role": "user", "content": JUDGE_USER_PROMPT.format(
-                    expected=expected, generated=generated
+                    prompt=prompt,
+                    expected=expected or "(none provided)",
+                    generated=generated,
                 )},
             ],
         )

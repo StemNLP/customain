@@ -1,14 +1,16 @@
-from ft.finetuning import query_fted_model_chat_completion
 from pathlib import Path
 import json
 import logging
 from .logging_config import setup_logger
+from .datasets import extract_eval_prompt_and_expected
+from .providers import get_provider
 
 logger = setup_logger(log_level=logging.INFO)
 
 
 def eval_run_fted_model(ft_model_id: str,
-                        test_file: str) -> str:
+                        test_file: str,
+                        provider_name: str = "openai") -> str:
     """
     Run a fine-tuned model on the test dataset and return the results.
 
@@ -20,27 +22,30 @@ def eval_run_fted_model(ft_model_id: str,
         list: A list of dictionaries containing evaluation results for each example.
     """
     
-    logger.info(f"Starting evaluation for model {ft_model_id} on {test_file}")
+    logger.info(f"Starting evaluation for {provider_name}/{ft_model_id} on {test_file}")
 
-
+    provider = get_provider(provider_name)
     ft_model_results = []
     
     with open(test_file, "r") as test_f:
         for i, line in enumerate(test_f):
             logger.debug(f"Processing eval example {i+1}")
             data = json.loads(line)
-            user_prompt = next((msg['content'] for msg in data['messages'] if msg['role'] == 'user'), None)
-            expected_response = next((msg['content'] for msg in data['messages'] if msg['role'] == 'assistant'), None)
+            user_prompt, expected_response = extract_eval_prompt_and_expected(data)
 
             if not user_prompt:
                 logger.warning(f"Could not find user prompt for example {i+1}. Skipping...")
                 continue
             
-            response = query_fted_model_chat_completion(model_id=ft_model_id,
-                               user_query=user_prompt)[0]
+            response = provider.query_model(
+                model_id=ft_model_id,
+                user_query=user_prompt,
+            )[0]
 
             ft_model_results.append({
                 "datapoint_id": i + 1,
+                "provider": provider_name,
+                "model_id": ft_model_id,
                 "user_prompt": user_prompt,
                 "expected_response": expected_response,
                 "generated_response": response,
@@ -65,10 +70,18 @@ def eval_run_all_fted_models(test_file: str) -> None:
     results = {}
 
     # Run baseline (non-fine-tuned) models
-    for model_id in baseline_models:
-        logger.info(f"Evaluating baseline model {model_id}")
-        res = eval_run_fted_model(model_id, test_file)
-        results[f"baseline:{model_id}"] = res
+    from .training_configs import default_provider
+
+    for baseline in baseline_models:
+        if isinstance(baseline, str):
+            provider_name = default_provider
+            model_id = baseline
+        else:
+            provider_name = baseline.get("provider", default_provider)
+            model_id = baseline["model"]
+        logger.info(f"Evaluating baseline model {provider_name}/{model_id}")
+        res = eval_run_fted_model(model_id, test_file, provider_name=provider_name)
+        results[f"baseline:{provider_name}:{model_id}"] = res
 
     # Run fine-tuned models
     for exp_id, exp_data in experiments.items():
@@ -77,9 +90,10 @@ def eval_run_all_fted_models(test_file: str) -> None:
             logger.warning(f"Experiment {exp_id} does not have a fine-tuned model ID. Skipping...")
             continue
 
-        logger.info(f"Evaluating experiment {exp_id} with model {ft_model_id}")
-        res = eval_run_fted_model(ft_model_id, test_file)
-        results[ft_model_id] = res
+        provider_name = exp_data.get("provider", "openai")
+        logger.info(f"Evaluating experiment {exp_id} with model {provider_name}/{ft_model_id}")
+        res = eval_run_fted_model(ft_model_id, test_file, provider_name=provider_name)
+        results[f"{provider_name}:{ft_model_id}"] = res
 
     output_path = Path(__file__).parent / "_ft_models_eval_runs.json"
     with open(output_path, "w", encoding="utf-8") as out_f:

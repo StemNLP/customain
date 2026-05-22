@@ -31,6 +31,7 @@ def evaluate_ft_model(model_results: list, evaluator_registry: dict,
     for eval_run in model_results:
         datapoint_id = eval_run["datapoint_id"]
         eval_input = {
+            "prompt": eval_run["user_prompt"],
             "expected": eval_run["expected_response"],
             "generated": eval_run["generated_response"],
         }
@@ -97,6 +98,13 @@ def evaluate_all_ft_models(skip_evaluators: list[str] = []) -> None:
         json.dump(all_evaluations, f, indent=2, ensure_ascii=False)
     logger.info(f"Evaluation results saved to {output_path}")
 
+    ranking = rank_models(per_model_avgs)
+    if ranking:
+        ranking_path = Path(__file__).parent / "_model_ranking.json"
+        with open(ranking_path, "w", encoding="utf-8") as f:
+            json.dump(ranking, f, indent=2, ensure_ascii=False)
+        logger.info(f"Model ranking saved to {ranking_path}")
+
     # Log a bar chart per metric: one bar per model
     if per_model_avgs:
         all_metric_names = sorted({m for avgs in per_model_avgs.values() for m in avgs})
@@ -116,3 +124,25 @@ def evaluate_all_ft_models(skip_evaluators: list[str] = []) -> None:
         wandb.log({"metrics_summary": summary_table})
 
     wandb.finish()
+
+
+def rank_models(per_model_avgs: dict[str, dict[str, float]]) -> list[dict]:
+    """Rank models with metric weights from training_configs.py."""
+    from .training_configs import metric_weights
+
+    ranked = []
+    for model_id, avgs in per_model_avgs.items():
+        total_weight = 0.0
+        weighted_sum = 0.0
+        for metric, weight in metric_weights.items():
+            if metric in avgs:
+                weighted_sum += avgs[metric] * weight
+                total_weight += abs(weight)
+        if total_weight == 0:
+            continue
+        ranked.append({
+            "model": model_id,
+            "selection_score": round(weighted_sum / total_weight, 4),
+            "metrics": avgs,
+        })
+    return sorted(ranked, key=lambda row: row["selection_score"], reverse=True)

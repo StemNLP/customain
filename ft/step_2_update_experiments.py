@@ -2,13 +2,13 @@ import json
 from pathlib import Path
 import logging
 from .logging_config import setup_logger
-from .finetuning import client
+from .providers import get_provider
 
 logger = setup_logger(log_level=logging.INFO)
 
 def update_experiments():
     """
-    Update the experiment results with finetuned model IDs from OpenAI's fine-tuning jobs.
+    Update the experiment results with finetuned model IDs from provider fine-tuning jobs.
     This function reads the experiment results from a JSON file, retrieves the status of each fine-tuning job,
     and updates the JSON file with the finetuned model IDs if all jobs have succeeded.
 
@@ -25,8 +25,9 @@ def update_experiments():
 
     for exp_id, exp_data in experiments.items():
         ft_job_id = exp_data['ft_job_id']
+        provider = get_provider(exp_data.get("provider", "openai"))
         try:
-            response = client.fine_tuning.jobs.retrieve(ft_job_id)
+            response = provider.retrieve_fine_tuning_job(ft_job_id)
             if response.status != 'succeeded':
                 logger.info(f"Job {ft_job_id} status: {response.status}")
                 all_succeeded = False
@@ -46,4 +47,3 @@ def update_experiments():
         logger.info("Successfully updated all fine-tuned model IDs")
     else:
         logger.warning("Update aborted: Not all jobs have succeeded")
-

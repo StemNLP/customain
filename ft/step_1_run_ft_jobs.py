@@ -1,12 +1,22 @@
 import json
 import shortuuid
 from pathlib import Path
-from ft.finetuning import run_finetuning
 import logging
 import wandb
 from .logging_config import setup_logger
+from .providers import get_provider
 
 logger = setup_logger(log_level=logging.INFO)
+
+
+def _normalize_model_config(model_config, default_provider: str) -> dict:
+    if isinstance(model_config, str):
+        return {"provider": default_provider, "model": model_config}
+    return {
+        "provider": model_config.get("provider", default_provider),
+        "model": model_config["model"],
+    }
+
 
 def generate_configurations(train_file: str,
                           test_file: str,
@@ -14,8 +24,8 @@ def generate_configurations(train_file: str,
                           batch_sizes: list,
                           learning_rate_multipliers: list,
                           training_method: str = "supervised",
-                          train_file_oai_id: str | None = None,
-                          test_file_oai_id: str | None = None,
+                          train_file_provider_id: str | None = None,
+                          test_file_provider_id: str | None = None,
                           n_epochs: int = 4):
     """
     Generate all hyperparameter configurations for fine-tuning experiments.
@@ -23,9 +33,9 @@ def generate_configurations(train_file: str,
     Always produces one default-hyperparameter config per LLM, plus one config
     for every combination in the cross-product of the provided hyperparameter
     lists. An empty list for a dimension means "do not sweep that dimension"
-    (OpenAI will use its default for it), not "skip the sweep entirely".
+    (the provider will use its default for it), not "skip the sweep entirely".
 
-    OAI file IDs are optional at config generation time — run_experiments
+    Provider file IDs are optional at config generation time — run_experiments
     uploads files after cost confirmation.
 
     Args:
@@ -35,30 +45,31 @@ def generate_configurations(train_file: str,
         batch_sizes (list): List of batch sizes to sweep (empty = don't sweep).
         learning_rate_multipliers (list): List of LR multipliers to sweep (empty = don't sweep).
         training_method (str): "supervised" or "dpo".
-        train_file_oai_id (str | None): OpenAI file ID for the training file.
-        test_file_oai_id (str | None): OpenAI file ID for the test file.
+        train_file_provider_id (str | None): Provider file ID for the training file.
+        test_file_provider_id (str | None): Provider file ID for the test file.
         n_epochs (int): Number of epochs for the hyperparameter-sweep configs.
 
     Returns:
         list: A list of dictionaries, each containing a configuration for a fine-tuning experiment.
     """
-    from .training_configs import include_default_hyperparam_config
+    from .training_configs import default_provider, include_default_hyperparam_config
 
     logger.info(f"Generating {training_method} configurations for fine-tuning experiments...")
     configs = []
 
     base = {
         "training_file": train_file,
-        "training_file_oai_id": train_file_oai_id,
+        "training_file_provider_id": train_file_provider_id,
         "test_file": test_file,
-        "test_file_oai_id": test_file_oai_id,
+        "test_file_provider_id": test_file_provider_id,
         "training_method": training_method,
     }
 
-    # Default config (OpenAI picks all hyperparameters) — one per model.
+    # Default config (provider picks all hyperparameters) — one per model.
     if include_default_hyperparam_config:
         for llm in llms:
-            configs.append({**base, "model": llm, "hyperparameters": None})
+            model_config = _normalize_model_config(llm, default_provider)
+            configs.append({**base, **model_config, "hyperparameters": None})
 
     # Sweep configs. Use [None] as a sentinel for "don't sweep this dimension"
     # so the cross-product loop still runs when one (or both) lists are empty.
@@ -70,6 +81,7 @@ def generate_configurations(train_file: str,
         return configs
 
     for llm in llms:
+        model_config = _normalize_model_config(llm, default_provider)
         for batch_size in bs_values:
             for lr_mult in lr_values:
                 hparams = {"n_epochs": n_epochs}
@@ -77,7 +89,7 @@ def generate_configurations(train_file: str,
                     hparams["batch_size"] = batch_size
                 if lr_mult is not None:
                     hparams["learning_rate_multiplier"] = lr_mult
-                configs.append({**base, "model": llm, "hyperparameters": hparams})
+                configs.append({**base, **model_config, "hyperparameters": hparams})
     return configs
 
 def run_experiments(training_configurations):
@@ -93,17 +105,17 @@ def run_experiments(training_configurations):
                     {
                         "VJGHLBfagGsopVwsAG48ND": {
                             "model": "gpt-4.1-mini-2025-04-14",
-                            "training_file_oai_id": "file-G8tstQfCKpgCcE8mzzoxrC",
-                            "training_file": "file-views90-train",
-                            "training_file": "file-views90-val",
+                            "training_file_provider_id": "file-G8tstQfCKpgCcE8mzzoxrC",
+                            "training_file": "data/demo/sft/train.jsonl",
+                            "test_file": "data/demo/sft/test.jsonl",
                             "hyperparameters": null,
                             "ft_job_id": "ftjob-42a982ad"
                         },
                         "gWKFh54X2xGShKpsh5G934": {
                             "model": "gpt-4.1-mini-2025-04-14",
-                            "training_file_oai_id": "file-views18425-train",
-                            "training_file": "file-views18425-train",
-                            "training_file": "file-views18425-val",
+                            "training_file_provider_id": "file-views18425-train",
+                            "training_file": "data/demo/sft/train.jsonl",
+                            "test_file": "data/demo/sft/test.jsonl",
                             "hyperparameters": null,
                             "ft_job_id": "ftjob-5a2ef1e8"
                         }
@@ -119,11 +131,12 @@ def run_experiments(training_configurations):
     for est in estimates:
         hp = est["hyperparameters"] or "defaults"
         method_label = est.get("training_method", "supervised")
+        provider_label = est.get("provider", "openai")
         if est["cost_usd"] is None:
-            logger.warning(f"  - {est['model']} [{method_label}] ({hp}): price unknown for this model "
+            logger.warning(f"  - {provider_label}/{est['model']} [{method_label}] ({hp}): price unknown "
                            f"({est['tokens']} tokens × {est['n_epochs']} epochs)")
         else:
-            logger.warning(f"  - {est['model']} [{method_label}] ({hp}): ${est['cost_usd']:.2f} "
+            logger.warning(f"  - {provider_label}/{est['model']} [{method_label}] ({hp}): ${est['cost_usd']:.2f} "
                            f"({est['tokens']} tokens × {est['n_epochs']} epochs × ${est['price_per_1M']}/1M)")
     logger.warning(f"Estimated total: ${total_cost:.2f}")
 
@@ -133,23 +146,25 @@ def run_experiments(training_configurations):
         return None
     logger.info("Proceeding with experiments...")
 
-    # Upload files to OpenAI (after cost confirmation)
-    from .finetuning import upload_file_for_ft
+    # Upload files after cost confirmation.
     uploaded = {}
     for config in training_configurations:
+        provider_name = config.get("provider", "openai")
+        provider = get_provider(provider_name)
         for key in ("training_file", "test_file"):
             local_path = config.get(key)
-            if local_path and local_path not in uploaded:
-                uploaded[local_path] = upload_file_for_ft(local_path)
+            upload_key = (provider_name, local_path)
+            if local_path and upload_key not in uploaded:
+                uploaded[upload_key] = provider.upload_file(local_path)
             if local_path:
-                config[f"{key}_oai_id"] = uploaded[local_path]
-    logger.info(f"Uploaded {len(uploaded)} file(s) to OpenAI.")
+                config[f"{key}_provider_id"] = uploaded[upload_key]
+    logger.info(f"Uploaded {len(uploaded)} provider file(s).")
 
     wandb.init(project="customain", job_type="fine-tuning")
 
     for config in training_configurations:
         # Validate required fields
-        if not all(key in config for key in ["model", "training_file", "training_file_oai_id", "hyperparameters"]):
+        if not all(key in config for key in ["model", "provider", "training_file", "training_file_provider_id", "hyperparameters"]):
             logger.error(f"Missing required fields in config: {config}. Skipping this configuration.")
             continue
             
@@ -169,10 +184,11 @@ def run_experiments(training_configurations):
                 }
         
         try:
-            response = run_finetuning(
+            provider = get_provider(config["provider"])
+            response = provider.create_fine_tuning_job(
                 model=config["model"],
-                training_file=config["training_file_oai_id"],
-                ft_method_config=method_config
+                training_file=config["training_file_provider_id"],
+                method_config=method_config,
             )
             
             # Generate unique experiment ID
@@ -181,11 +197,12 @@ def run_experiments(training_configurations):
             # Store experiment config with UUID as key
             experiment_data = {
                 "model": config["model"],
+                "provider": config["provider"],
                 "training_method": method,
                 "training_file": config["training_file"],
-                "training_file_oai_id": config["training_file_oai_id"],
+                "training_file_provider_id": config["training_file_provider_id"],
                 "test_file": config["test_file"] if "test_file" in config else None,
-                "test_file_oai_id": config["test_file_oai_id"] if "test_file_oai_id" in config else None,
+                "test_file_provider_id": config["test_file_provider_id"] if "test_file_provider_id" in config else None,
                 "hyperparameters": config["hyperparameters"],
                 "ft_job_id": response.id,
             }
@@ -193,6 +210,7 @@ def run_experiments(training_configurations):
 
             wandb.log({
                 "experiment_id": experiment_id,
+                "provider": config["provider"],
                 "model": config["model"],
                 "training_method": method,
                 "ft_job_id": response.id,
@@ -211,4 +229,3 @@ def run_experiments(training_configurations):
     wandb.finish()
 
     return experiments
-
