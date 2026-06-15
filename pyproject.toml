@@ -1,7 +1,7 @@
 [project]
 name = "customain"
 version = "0.1.0"
-description = "Email dataset pipeline"
+description = "Fine-tuning experimentation and model selection pipeline"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.92.0",

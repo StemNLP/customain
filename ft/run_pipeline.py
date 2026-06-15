@@ -17,8 +17,7 @@ import time
 from pathlib import Path
 import logging
 
-from gmail_preprocessing_pipeline.datasets import find_latest_dataset_dir
-
+from .datasets import find_latest_dataset_dir
 from .logging_config import setup_logger
 
 logger = setup_logger(log_level=logging.INFO)
@@ -43,7 +42,7 @@ def run_pipeline(data_dir: str = "data",
 
     Args:
         data_dir: Dataset version directory or data root. When pointed at the
-            data root, the latest dataset version under data/gmail is used.
+            data root, the latest dataset version under the root is used.
         skip_steps: List of step numbers to skip (e.g. [1, 2]).
         test_run: If True, use mock data files produced by the preprocessing pipeline.
     """
@@ -128,7 +127,7 @@ def _resolve_data_dir(data_path: Path) -> Path:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=str, default="data",
-                        help="Dataset directory or data root (default: latest under data/gmail)")
+                        help="Dataset directory or data root (default: latest dataset under data)")
     parser.add_argument("--skip", type=int, nargs="*", default=[],
                         help="Step numbers to skip (e.g. --skip 1 2)")
     parser.add_argument("--test-run", action="store_true",

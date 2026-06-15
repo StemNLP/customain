@@ -1,13 +1,20 @@
-# Baselines — not fine-tuned, but evaluated on the test set for comparison
+# Baselines, evaluated on the test set for comparison. Each entry can be either
+# a model string (uses default_provider) or {"provider": "...", "model": "..."}.
 baseline_models = [
-    "gpt-4.1-2025-04-14",
+    {"provider": "openai", "model": "gpt-4.1-2025-04-14"},
 ]
+
+# Default provider for string-only model configs.
+# Supported today:
+# - openai
+# - openai_compatible, together, fireworks (configure *_api_key and *_base_url)
+default_provider = "openai"
 
 llms = [
     # "gpt-4.1-nano-2025-04-14", # Cheapest model $1.50 / hour or training
     # "gpt-4o-mini-2024-07-18",  # Second cheapest model $3 / hour for training
     # "gpt-4.1-mini-2025-04-14", # $5.00 / hour for training
-    "gpt-4.1-2025-04-14", # Powerful, but expensive. $25.00 / hour for training
+    {"provider": "openai", "model": "gpt-4.1-2025-04-14"}, # Powerful, but expensive.
     # o4-mini-2025-04-16, # Powerful, best model in coding as of June 2025. but very expensive. $100.00 / hour for training
 ]
 
@@ -16,7 +23,7 @@ llms = [
 # Only the llms will be used.
 # If e.g. batch_sizes is empty, other hyperparameters will not be used.
 
-# OpenAI uses a default batch size dynamically calculated, 
+# Some providers, including OpenAI, use a default batch size dynamically calculated,
 # which is roughly 0.2% of the training examples, capped at 256.
 # This approach is generally found to be effective for larger datasets. 
 # Set to: 4,8,16,32
@@ -29,7 +36,7 @@ learning_rate_multipliers = [
     # 0.05
 ]
 
-# If True, add one extra FT job per LLM with all hyperparameters left to OpenAI's
+# If True, add one extra FT job per LLM with all hyperparameters left to the provider's
 # defaults — useful as a reference baseline alongside swept configs.
 include_default_hyperparam_config = True
 
@@ -38,6 +45,18 @@ include_default_hyperparam_config = True
 # <dataset>/sft/train.jsonl for supervised and <dataset>/dpo/train.jsonl for dpo.
 training_methods = ["supervised", "dpo"]
 
-# Evaluator names to skip during evaluation (step 4).
-# e.g. ["bleu", "meteor", "semantic_similarity"]
-skip_evaluators = ["bleu", "meteor", "semantic_similarity"]
+# Evaluator names to skip during evaluation (step 4). Keep similarity/style
+# evaluators available for niche experiments, but default to task-oriented
+# scoring for generic model selection.
+skip_evaluators = [
+    "authorship_classifier",
+    "bleu",
+    "meteor",
+    "semantic_similarity",
+    "tone_judge",
+]
+
+# Weighted model-selection score. Higher is better.
+metric_weights = {
+    "task_judge": 1.0,
+}

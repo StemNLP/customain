@@ -1,31 +1,28 @@
 # Customain
 
-![Overview](media/overview.svg)
+> [!WARNING]
+> Customain is in transition. As OpenAI and other commercial providers discontinue or reshape hosted fine-tuning APIs, the project is planned to move soon toward open-weight model workflows and providers such as Modal, Together AI, and FireworksHQ. Expect provider support and setup instructions to change as this migration lands.
 
-**Fine-tune LLMs to sound like you.**
+**Post-training experiment bench for managed and open-weight provider workflows.**
 
-Customain learns your writing style from your own real text content, and conversations, and fine-tunes (large) language models to mimic your tone, voice, and communication patterns. The result is your custom AI that does not sound generic, but just like *you*.
-
-## How It Works
+Customain is for running post-training experiments, evaluating the resulting models with pluggable metrics, and selecting the best model for a task. It is no longer centered on learning one person's email style; the core project is a generic experimentation pipeline for provider-hosted and open-weight post-training workflows.
 
 ```text
-Your emails → Extract & clean → Fine-tune → A model that writes like you
+Generic JSONL data -> post-training sweeps across providers/models -> eval runs -> weighted model ranking
 ```
 
-1. **Connect** a content source (Gmail today, more coming)
-2. **Process** your text into high-quality, anonymized training pairs
-3. **Fine-tune** OpenAI models on your writing style
-4. **Evaluate** how well the model captures your tone — with both classical metrics and a trained authorship classifier
+## What This Project Is
 
-## Supported Sources
+Customain focuses on the operational loop around post-training:
 
-| Source          | Status       |
-| --------------- | ------------ |
-| Gmail           | ✅ Available |
-| Outlook         | 🔜 Planned   |
-| Slack           | 🔜 Planned   |
-| Notion          | 🔜 Planned   |
-| Google Docs     | 🔜 Planned   |
+1. Define generic SFT or DPO datasets.
+2. Sweep models, providers, methods, and hyperparameters.
+3. Launch provider-hosted or open-weight post-training jobs.
+4. Run baseline and post-trained models on the same test split.
+5. Evaluate outputs with pluggable task metrics.
+6. Rank models with configurable metric weights.
+
+The pipeline is currently provider-API first, with an upcoming shift toward open-weight post-training infrastructure. If you want local full training today, use a project built for training infrastructure such as [torchtune](https://docs.pytorch.org/torchtune/stable/), [Axolotl](https://github.com/axolotl-ai-cloud/axolotl), [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory), or [Unsloth](https://docs.unsloth.ai/).
 
 ## Supported Providers
 
@@ -43,11 +40,11 @@ Your emails → Extract & clean → Fine-tune → A model that writes like you
 ### Prerequisites
 
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/) package manager
-- OpenAI API key
-- Gmail OAuth credentials (for Gmail source)
+- [uv](https://docs.astral.sh/uv/)
+- API keys for the post-training providers you plan to use
+- Optional: Weights & Biases key for experiment tracking
 
-### Installation
+### Install
 
 ```bash
 git clone https://github.com/user/customain.git
@@ -55,156 +52,126 @@ cd customain
 uv sync
 ```
 
-### Configure API Keys
+### Configure Secrets
 
 Create `.secrets/api_keps.json`:
 
 ```json
 {
   "openai_api_key": "sk-...",
-  "wandb_api_key": "optional-for-tracking"
+  "wandb_api_key": "optional",
+  "together_api_key": "optional",
+  "together_base_url": "https://api.together.xyz/v1",
+  "fireworks_api_key": "optional",
+  "fireworks_base_url": "https://api.fireworks.ai/inference/v1"
 }
 ```
 
-For Gmail, you'll also need OAuth credentials — see [Google's guide](https://developers.google.com/gmail/api/quickstart/python).
+Only configure providers you use.
 
-### Step 1 — Build Your Dataset
+### Configure Experiments
 
-Run the full Gmail preprocessing pipeline:
+Edit `ft/training_configs.py`:
+
+```python
+baseline_models = [
+    {"provider": "openai", "model": "gpt-4.1-2025-04-14"},
+]
+
+llms = [
+    {"provider": "openai", "model": "gpt-4.1-mini-2025-04-14"},
+    {"provider": "openai", "model": "gpt-4.1-2025-04-14"},
+]
+
+training_methods = ["supervised", "dpo"]
+
+metric_weights = {
+    "task_judge": 1.0,
+}
+```
+
+### Run The Pipeline
 
 ```bash
-uv run python -m gmail_preprocessing_pipeline.run_pipeline
+uv run python -m ft.run_pipeline --data-dir data/my_experiment
 ```
 
-Each run now creates a versioned dataset under `data/gmail/<timestamp>/`, where the
-timestamp is taken from the exported mbox filename. Inside each version you get
-separate folders per dataset type, for example:
-
-```text
-data/gmail/20260505_101530/
-  _intermediate/
-  sft/
-    train.jsonl
-    test.jsonl
-    train_mock.jsonl
-    test_mock.jsonl
-  dpo/
-    train.jsonl
-    test.jsonl
-    train_mock.jsonl
-    test_mock.jsonl
-  authorship/
-    train.jsonl
-    val.jsonl
-  manifest.json
-```
-
-Build only the dataset types you need:
-
-```bash
-uv run python -m gmail_preprocessing_pipeline.run_pipeline --targets sft
-uv run python -m gmail_preprocessing_pipeline.run_pipeline --targets sft authorship
-```
-
-Limit how much mail is exported:
-
-```bash
-# Only recent mail
-uv run python -m gmail_preprocessing_pipeline.run_pipeline --newer-than-days 30
-
-# Cap the export size
-uv run python -m gmail_preprocessing_pipeline.run_pipeline --max-threads 250
-
-# Add an extra Gmail query filter
-uv run python -m gmail_preprocessing_pipeline.run_pipeline \
-  --gmail-query "label:important -category:promotions"
-```
-
-Or skip steps you've already completed:
-
-```bash
-# Already exported Gmail — start from extract
-uv run python -m gmail_preprocessing_pipeline.run_pipeline --start-from 2
-
-# Re-run dataset building from existing processed pairs
-uv run python -m gmail_preprocessing_pipeline.run_pipeline --start-from 4 --targets sft dpo
-```
-
-The pipeline runs 4 steps:
-
-1. **Export** Gmail threads to mbox
-2. **Extract** email-reply pairs
-3. **Transform** pairs in one LLM pass: clean + filter + anonymize
-4. **Build** the selected dataset folders (`sft`, `dpo`, `authorship`)
-
-### Step 2 — Fine-Tune & Evaluate
-
-Configure which models and hyperparameters to try in `ft/training_configs.py`, then run the full pipeline:
+For a small smoke test, use mock files:
 
 ```bash
 uv run python -m ft.run_pipeline \
-  --data-dir data
-```
-
-By default this uses the latest dataset version under `data/gmail/`.
-
-Or run a quick test with a small subset first:
-
-```bash
-uv run python -m ft.run_pipeline \
-  --data-dir data \
+  --data-dir data/my_experiment \
   --test-run
 ```
 
-You can also skip steps you've already completed:
+Skip completed stages when iterating:
 
 ```bash
-# Skip data upload and job launch, just evaluate
 uv run python -m ft.run_pipeline \
-  --data-dir data \
+  --data-dir data/my_experiment \
   --skip 1 2
 ```
 
-The pipeline will:
+The pipeline writes:
 
-1. Upload data and launch fine-tuning jobs across your configured model/hyperparameter combinations
-2. Poll until all jobs complete
-3. Run each fine-tuned model on the test set
-4. Evaluate results and log metrics to [Weights & Biases](https://wandb.ai)
+| File | Purpose |
+| --- | --- |
+| `ft/_experiments.json` | Provider/model/method/job metadata |
+| `ft/_ft_models_eval_runs.json` | Raw generations from baseline and post-trained models |
+| `ft/_evaluation_results.json` | Per-datapoint and average metric scores |
+| `ft/_model_ranking.json` | Weighted ranking used for model selection |
 
 ## Evaluation
 
-Customain includes a pluggable evaluation framework. Evaluators are auto-discovered. You can just drop a new one into `ft/evaluation/evaluators/`. It can be ml-based, statistical, or any other form you prefer. Take a look at the existing ml-based and metric/statistical evaluators already implemented:
+Evaluation is pluggable. Drop a new evaluator into `ft/evaluation/evaluators/`; it will be auto-discovered if it subclasses `BaseEvaluator`.
 
-| Evaluator                | What it measures                           |
-| ------------------------ | ------------------------------------------ |
-| `authorship_classifier`  | CNN-based authorship probability score     |
-| `tone_judge`             | LLM-as-judge scoring tone & style fidelity |
-| `bleu`                   | N-gram overlap (BLEU score)                |
-| `meteor`                 | Token-level alignment (METEOR score)       |
-| `semantic_similarity`    | Embedding cosine similarity                |
+The default direction is task-oriented model selection, not similarity scoring. The main generic evaluator is:
 
-Configure which evaluators to skip in `ft/training_configs.py`:
+| Evaluator | What it measures |
+| --- | --- |
+| `task_judge` | LLM-as-judge score for task quality, instruction following, correctness, completeness, and clarity |
+
+Legacy/specialized evaluators remain available but are skipped by default:
+
+| Evaluator | Use when |
+| --- | --- |
+| `bleu`, `meteor`, `semantic_similarity` | You explicitly want reference similarity metrics |
+| `tone_judge` | You explicitly care about style/register matching |
+| `authorship_classifier` | You are running an authorship/style experiment with a trained classifier |
+
+Configure default skips and the model-selection formula in `ft/training_configs.py`:
 
 ```python
-skip_evaluators = ["bleu", "meteor"]  # Only run tone_judge and semantic_similarity
+skip_evaluators = [
+    "authorship_classifier",
+    "bleu",
+    "meteor",
+    "semantic_similarity",
+    "tone_judge",
+]
+
+metric_weights = {
+    "task_judge": 1.0,
+}
 ```
 
-### Authorship Classifier
+Evaluators can require any subset of:
 
-A character-level CNN text classifier trained to distinguish the author's writing from other people's writings. Unlike LLM-as-judge evaluators, this learns style patterns directly from data, hence it does not suffer from the LLM-as-a-judge performance issues. Its current best performance is `91%` precision.
+- `prompt`
+- `expected`
+- `generated`
+
+This keeps the evaluation layer independent from Gmail, email tone, or reference-similarity assumptions.
+
+## Optional Gmail Dataset Builder
+
+The old Gmail preprocessing pipeline can still build SFT/DPO data if you want to experiment on email-style tasks:
 
 ```bash
-# Prepare training data from the latest versioned SFT dataset
-uv run python -m classifiers.authorship.prepare_data
-
-# Train (logs to W&B under customain-classifiers)
-uv run python -m classifiers.authorship.train \
-  --train-data data/gmail/<timestamp>/authorship/train.jsonl \
-  --val-data data/gmail/<timestamp>/authorship/val.jsonl
-
-# The authorship_classifier evaluator auto-registers and uses the trained checkpoint
+uv run python -m gmail_preprocessing_pipeline.run_pipeline --targets sft dpo
 ```
+
+That path is now optional project history, not the center of Customain.
 
 ## License
 
