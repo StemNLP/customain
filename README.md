@@ -1,35 +1,39 @@
 # Customain
 
-**Fine-tuning experiment bench for managed FT APIs.**
+> [!WARNING]
+> Customain is in transition. As OpenAI and other commercial providers discontinue or reshape hosted fine-tuning APIs, the project is planned to move soon toward open-weight model workflows and providers such as Modal, Together AI, and FireworksHQ. Expect provider support and setup instructions to change as this migration lands.
 
-Customain is for running fine-tuning experiments, evaluating the resulting models with pluggable metrics, and selecting the best model for a task. It is no longer centered on learning one person's email style; the core project is a generic experimentation pipeline for provider-hosted fine-tuning APIs.
+**Post-training experiment bench for managed and open-weight provider workflows.**
+
+Customain is for running post-training experiments, evaluating the resulting models with pluggable metrics, and selecting the best model for a task. It is no longer centered on learning one person's email style; the core project is a generic experimentation pipeline for provider-hosted and open-weight post-training workflows.
 
 ```text
-Generic JSONL data -> FT sweeps across providers/models -> eval runs -> weighted model ranking
+Generic JSONL data -> post-training sweeps across providers/models -> eval runs -> weighted model ranking
 ```
 
 ## What This Project Is
 
-Customain focuses on the operational loop around fine-tuning:
+Customain focuses on the operational loop around post-training:
 
 1. Define generic SFT or DPO datasets.
 2. Sweep models, providers, methods, and hyperparameters.
-3. Launch provider-hosted fine-tuning jobs.
-4. Run baseline and fine-tuned models on the same test split.
+3. Launch provider-hosted or open-weight post-training jobs.
+4. Run baseline and post-trained models on the same test split.
 5. Evaluate outputs with pluggable task metrics.
 6. Rank models with configurable metric weights.
 
-The pipeline is intentionally provider-API first. If you want open-source or local full fine-tuning, use a project built for training infrastructure such as [torchtune](https://docs.pytorch.org/torchtune/stable/), [Axolotl](https://github.com/axolotl-ai-cloud/axolotl), [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory), or [Unsloth](https://docs.unsloth.ai/).
+The pipeline is currently provider-API first, with an upcoming shift toward open-weight post-training infrastructure. If you want local full training today, use a project built for training infrastructure such as [torchtune](https://docs.pytorch.org/torchtune/stable/), [Axolotl](https://github.com/axolotl-ai-cloud/axolotl), [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory), or [Unsloth](https://docs.unsloth.ai/).
 
 ## Supported Providers
 
 | Provider | Status | Notes |
 | --- | --- | --- |
-| OpenAI | Available | SFT and DPO through the OpenAI FT API |
-| OpenAI-compatible FT APIs | Initial support | Configure `*_api_key` and `*_base_url` in `.secrets/api_keps.json` |
-| Together / Fireworks | Initial adapter path | Use the OpenAI-compatible provider path if the account/API exposes compatible FT endpoints |
+| OpenAI | Transitional | Existing SFT and DPO support while the project migrates |
+| OpenAI-compatible post-training APIs | Initial support | Configure `*_api_key` and `*_base_url` in `.secrets/api_keps.json` |
+| Modal | Planned | Target provider for open-weight post-training workflows |
+| Together AI / FireworksHQ | Planned / initial adapter path | Use the OpenAI-compatible provider path where available while dedicated open-weight support evolves |
 
-Provider support lives under `ft/providers/`. Add a provider by implementing `FineTuningProvider` and registering it in `ft/providers/registry.py`.
+Provider support lives under `ft/providers/`. Add a provider by implementing the base provider interface in `ft/providers/base.py` and registering it in `ft/providers/registry.py`.
 
 ## Data
 
@@ -63,7 +67,7 @@ The old Gmail preprocessing package is still in the repository as an optional da
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
-- API keys for the fine-tuning providers you plan to use
+- API keys for the post-training providers you plan to use
 - Optional: Weights & Biases key for experiment tracking
 
 ### Install
@@ -139,7 +143,7 @@ The pipeline writes:
 | File | Purpose |
 | --- | --- |
 | `ft/_experiments.json` | Provider/model/method/job metadata |
-| `ft/_ft_models_eval_runs.json` | Raw generations from baseline and FT models |
+| `ft/_ft_models_eval_runs.json` | Raw generations from baseline and post-trained models |
 | `ft/_evaluation_results.json` | Per-datapoint and average metric scores |
 | `ft/_model_ranking.json` | Weighted ranking used for model selection |
 
