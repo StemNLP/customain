@@ -26,40 +26,14 @@ The pipeline is currently provider-API first, with an upcoming shift toward open
 
 ## Supported Providers
 
-| Provider | Status | Notes |
-| --- | --- | --- |
-| OpenAI | Transitional | Existing SFT and DPO support while the project migrates |
-| OpenAI-compatible post-training APIs | Initial support | Configure `*_api_key` and `*_base_url` in `.secrets/api_keps.json` |
-| Modal | Planned | Target provider for open-weight post-training workflows |
-| Together AI / FireworksHQ | Planned / initial adapter path | Use the OpenAI-compatible provider path where available while dedicated open-weight support evolves |
-
-Provider support lives under `ft/providers/`. Add a provider by implementing the base provider interface in `ft/providers/base.py` and registering it in `ft/providers/registry.py`.
-
-## Data
-
-Datasets are source-agnostic JSONL directories. A dataset version can look like this:
-
-```text
-data/my_experiment/
-  sft/
-    train.jsonl
-    test.jsonl
-    train_mock.jsonl
-    test_mock.jsonl
-  dpo/
-    train.jsonl
-    test.jsonl
-```
-
-Supported test/example shapes include:
-
-```jsonl
-{"messages":[{"role":"user","content":"Prompt"},{"role":"assistant","content":"Reference answer"}]}
-{"prompt":"Prompt","completion":"Reference answer"}
-{"input":{"messages":[{"role":"user","content":"Prompt"}]},"preferred_output":[{"role":"assistant","content":"Reference answer"}]}
-```
-
-The old Gmail preprocessing package is still in the repository as an optional dataset builder, but it is not the core product direction. For new experiments, bring or generate generic `sft/` and `dpo/` JSONL files.
+| Provider | Models | Methods | Status |
+| -------- | ------ | ------- | ------ |
+| **OpenAI** | GPT-4.1, 4.1-mini, 4.1-nano| SFT, DPO | ✅ Available |
+| **Together AI** | Llama, Mixtral, Qwen + any HF model | -- | 🔜 Planned |
+<!-- | **Fireworks AI** | Llama, Mixtral + open-source models | -- | 🔜 Planned |
+| **Google Vertex AI** | Gemini 2.5 Flash/Lite, 2.0 Flash | -- | 🔜 Planned |
+| **Mistral AI** | Mistral Small 3.1, Medium | -- | 🔜 Planned |
+| **Cohere** | Command A, R+, R, Aya Expanse | -- | 🔜 Planned | -->
 
 ## Quick Start
 
